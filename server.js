@@ -5,7 +5,14 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: '*' } });
+
+// 加上 methods 允許跨網域連線
+const io = require('socket.io')(http, { 
+    cors: { 
+        origin: "*", 
+        methods: ["GET", "POST"]
+    } 
+});
 
 app.use(express.static(__dirname + '/public'));
 
