@@ -283,7 +283,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; 
 http.listen(PORT, () => {
-    console.log(`🚀 坦克伺服器 (Server 端物理版) 啟動: http://localhost:${PORT}`);
+    console.log(`✅ 伺服器已成功啟動，正在監聽 Port: ${PORT}`);
 });
