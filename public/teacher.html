@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>🛡️ 坦克戰術指揮部: 教師中控台 (張世杰老師開發設計)</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background: #222;
+            color: #eee;
+            overflow: hidden;
+        }
+
+        header {
+            background: #8e44ad;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #9b59b6;
+            height: 50px;
+        }
+
+        .score-board {
+            display: flex;
+            gap: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: #000;
+            padding: 5px 20px;
+            border-radius: 5px;
+            border: 1px solid #666;
+        }
+
+        .score-red {
+            color: #ff5252;
+        }
+
+        .score-blue {
+            color: #448aff;
+        }
+
+        .timer {
+            color: #ffeb3b;
+            font-family: monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-run {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-file {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-warn {
+            background: #ff9800;
+            color: white;
+        }
+
+        #main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            justify-content: center;
+            align-items: center;
+            background: #111;
+        }
+
+        #game-wrapper {
+            width: 600px;
+            height: 400px;
+            position: relative;
+            border: 2px solid #555;
+        }
+
+        #gameCanvas {
+            background: #1a1a1a;
+            width: 600px;
+            height: 400px;
+            cursor: crosshair;
+        }
+
+        #map-edit-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #f1c40f;
+            padding: 5px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            display: none;
+            border: 1px solid #f1c40f;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .panel {
+            background: #2c3e50;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #34495e;
+            width: 450px;
+            color: white;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            color: #f1c40f;
+        }
+
+        .panel input,
+        .panel select {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .panel button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            background: #27ae60;
+            color: white;
+        }
+
+        #mapInput {
+            display: none;
+        }
+
+        footer {
+            font-size: 11px;
+            color: #cfbfbf;
+            text-align: center;
+            padding: 5px;
+            background: #1b262c;
+            border-top: 1px solid #0f4c75;
+        }
+
+        /* 覆蓋/增強原有的 header 樣式 */
+        header {
+            background: #8e44ad;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #6c3483;
+            /* 移除固定的 height: 50px; 讓內容自動撐開，或保留亦可 */
+        }
+
+        /* 記分板微調 */
+        .score-board .divider {
+            color: #666;
+            margin: 0 10px;
+        }
+
+        /* 遊戲控制區 */
+        .game-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-text {
+            margin-right: 15px;
+            font-size: 0.9rem;
+            color: #e0e0e0;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        /* 獨立的地圖工具列設計 */
+        .map-toolbar {
+            background: #2c3e50;
+            /* 深藍灰色背景區分開來 */
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1a252f;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tool-label {
+            color: #bdc3c7;
+            font-size: 0.95rem;
+            margin-right: 5px;
+        }
+
+        /* 共用按鈕設計 */
+        button {
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        /* 工具列按鈕專屬色系 */
+        .btn-tool {
+            background: #34495e;
+            color: #fff;
+            border: 1px solid #455a64;
+        }
+
+        .btn-tool:focus {
+            background: #f39c12;
+            border-color: #e67e22;
+            color: #fff;
+        }
+
+        /* 點擊後保持高亮，提示目前工具 */
+        .btn-eraser {
+            background: #ffcccc;
+            color: #c0392b;
+            border: 2px solid #e74c3c;
+        }
+
+        .btn-eraser:focus {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #c0392b;
+            color: white;
+        }
+
+        /* 工具列按鈕專屬色系 */
+        .btn-tool {
+            background: #34495e;
+            color: #fff;
+            border: 1px solid #455a64;
+        }
+
+        .btn-tool:hover {
+            background: #4a6278;
+        }
+
+        /* 🌟 選中狀態：當前拿著的工具會變成橘黃色，明確提示老師 */
+        .btn-tool.active {
+            background: #f39c12;
+            border-color: #e67e22;
+            color: #fff;
+        }
+
+        .btn-eraser {
+            background: #ffcccc;
+            color: #c0392b;
+            border: 2px solid #e74c3c;
+        }
+
+        /* 🌟 橡皮擦的選中狀態：變成實心紅色 */
+        .btn-eraser.active {
+            background: #e74c3c;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="overlay">
+        <div class="panel">
+            <h2>👨‍🏫 教師中控台</h2>
+            <label>房間號碼</label>
+            <input type="text" id="roomId" value="101">
+            <label>⏱️ 比賽時間 (秒)</label>
+            <input type="number" id="gameTime" value="180">
+            <label>🗺️ 戰場地圖</label>
+            <select id="mapSelect" onchange="checkMapMode()">
+                <option value="empty">空曠平原</option>
+                <option value="obstacles">散兵坑</option>
+                <option value="fortress">攻城戰</option>
+                <option value="maze">城市迷宮</option>
+                <option value="custom">✏️ 自訂/編輯模式</option>
+            </select>
+            <div id="map-tools"
+                style="display:none; margin-top:10px; background:#222; padding:10px; border-radius:5px;">
+                <button class="btn-file" onclick="document.getElementById('mapInput').click()"
+                    style="width:48%; font-size:0.9rem;">📂 載入地圖</button>
+                <button class="btn-warn" onclick="clearMap()" style="width:48%; font-size:0.9rem;">🗑️ 清空重畫</button>
+                <input type="file" id="mapInput" accept=".json" onchange="loadMapFromFile(this)">
+                <small style="color:#aaa; display:block; margin-top:5px;">*選擇「自訂」進入戰場後，可滑鼠拖曳畫牆</small>
+            </div>
+            <label>對戰伺服器</label>
+            <input type="text" id="serverUrl" value="http://127.0.0.1:3000">
+            <button onclick="connectSystem()">🚀 啟動伺服器</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="score-board">
+            <span class="score-red">RED: <span id="scoreRed">0</span></span>
+            <span class="divider">|</span>
+            <span class="timer" id="timerDisplay">00:00</span>
+            <span class="divider">|</span>
+            <span class="score-blue">BLUE: <span id="scoreBlue">0</span></span>
+        </div>
+
+        <div id="controls" class="game-controls">
+            <span id="statusText" class="status-text">未連線</span>
+            <button class="btn btn-file" onclick="downloadMapConfig()">💾 下載地圖</button>
+            <button class="btn btn-run" onclick="hostStartGame()">🔔 比賽開始</button>
+            <button class="btn btn-stop" onclick="hostResetGame()">♻️ 重置</button>
+        </div>
+    </header>
+
+    <div class="map-toolbar">
+        <div class="tool-group">
+            <span class="tool-label">📍 地圖畫筆：</span>
+            <button class="btn-tool active" onclick="changeTool('random', this)">🎲 隨機</button>
+            <button class="btn-tool" onclick="changeTool('🧱', this)">🧱 磚牆</button>
+            <button class="btn-tool" onclick="changeTool('🪨', this)">🪨 石頭</button>
+            <button class="btn-tool" onclick="changeTool('📦', this)">📦 木箱</button>
+            <button class="btn-tool" onclick="changeTool('🛢️', this)">🛢️ 油桶</button>
+            <button class="btn-tool" onclick="changeTool('🌲', this)">🌲 樹木</button>
+            <button class="btn-tool" onclick="changeTool('🌵', this)">🌵 仙人掌</button>
+
+            <span style="border-left: 1px solid #546e7a; margin: 0 5px; height: 20px;"></span>
+
+            <button class="btn-tool btn-eraser" onclick="changeTool('blank', this)">🧽 橡皮擦</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="btn-tool btn-danger" onclick="clearMap()">💣 清除全圖</button>
+        </div>
+    </div>
+
+    <div id="main-area">
+        <div id="game-wrapper">
+            <canvas id="gameCanvas" width="600" height="400"></canvas>
+            <div id="map-edit-hint">✏️ 編輯模式：按住滑鼠拖曳來畫牆壁</div>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_W = 600; const CANVAS_H = 400;
+        const CANVAS = document.getElementById('gameCanvas');
+        const ctx = CANVAS.getContext('2d');
+        let roomId = "101";
+
+        let players = {}, bullets = [], walls = [];
+        let gameScores = { red: 0, blue: 0 }, gameTimeLeft = 0, gameActive = false;
+        let isDrawing = false, startX, startY, isCustomMapMode = false;
+        let socket; // 全域變數
+
+        // --- 自訂地圖參數設定 ---
+        const GRID_SIZE = 40;       // 貼齊格線大小
+        const SPAWN_WIDTH = 100;    // 左右重生區寬度(禁建區)
+        let currentDrawMode = 'random'; // 原本的變數保留
+
+        // ✨ 新增這個專屬函式來切換工具，確保變數一定會被更新
+        function changeTool(mode, btnElement) {
+            currentDrawMode = mode;
+
+            // 移除所有工具列按鈕的「亮起」狀態
+            const tools = document.querySelectorAll('.map-toolbar .btn-tool');
+            tools.forEach(btn => btn.classList.remove('active'));
+
+            // 讓目前點擊的按鈕加上「亮起」狀態
+            if (btnElement) {
+                btnElement.classList.add('active');
+            }
+
+            // 🌟 核心修復：自動解鎖編輯模式！
+            // 如果目前不是自訂模式，強制切換，這樣就不會被預設地圖鎖死畫筆
+            if (!isCustomMapMode) {
+                isCustomMapMode = true;
+                document.getElementById('mapSelect').value = 'custom'; // 同步後台隱藏的選單狀態
+                setupMapEditor(); // 確保滑鼠繪圖事件成功綁定
+                renderGame();     // 🎨 立刻重繪畫布，讓兩側的「紅/藍禁建區」立刻浮現！
+            }
+        }
+
+
+        // 輔助函數：貼齊格線
+        function snap(val) {
+            return Math.floor(val / GRID_SIZE) * GRID_SIZE;
+        }
+
+        // 輔助函數：限制 X 軸，不可在重生區內建造
+        function clampX(x) {
+            if (x < SPAWN_WIDTH) return SPAWN_WIDTH;
+            if (x > CANVAS_W - SPAWN_WIDTH) return CANVAS_W - SPAWN_WIDTH;
+            return x;
+        }
+        // -----------------------
+
+        function checkMapMode() {
+            const isCustom = document.getElementById('mapSelect').value === 'custom';
+            document.getElementById('map-tools').style.display = isCustom ? 'block' : 'none';
+            if (!gameActive) {
+                if (isCustom) {
+                    isCustomMapMode = true;
+                    setupMapEditor();
+                    // ✨ 移除了原本的 clearMap()，不再強制清空地圖！
+                    // 這不僅修復了空白問題，還能讓老師把「預設地圖」轉成「自訂模式」繼續編輯加料！
+                    renderGame();
+                } else {
+                    isCustomMapMode = false;
+                    loadMapData(document.getElementById('mapSelect').value);
+                }
+            }
+        }
+
+        function connectSystem() {
+            roomId = document.getElementById('roomId').value;
+            const serverUrl = document.getElementById('serverUrl').value;
+            if (!serverUrl) { alert("請輸入伺服器網址！"); return; }
+
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                console.log("✅ Socket.io 已連線");
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('statusText').innerText = `🟢 已連線 Server 端物理版 | 房號:${roomId}`;
+
+                socket.emit('joinRoom', roomId);
+
+                // 初始化地圖並上傳
+                checkMapMode();
+                broadcastMap();
+
+                // 🌟 只需啟動渲染迴圈，物理計算已在 Server 執行
+                let lastLogicTime = 0;
+                function renderLoop(ts) {
+                    renderGame();
+                    requestAnimationFrame(renderLoop);
+                }
+                requestAnimationFrame(renderLoop);
+            });
+
+            // 接收 Server 廣播的遊戲狀態（Server 已算好）
+            // 接收 Server 廣播的遊戲狀態（Server 已算好）
+            socket.on('state', (data) => {
+                players = data.players;
+                bullets = data.bullets;
+                gameScores = data.scores;
+                gameTimeLeft = data.time;
+
+                // 🌟【核心修復】：精準判斷是否正在比賽中，避免一連線就鎖死編輯器！
+                if (typeof data.active !== 'undefined') {
+                    // 如果伺服器有傳送明確的 active 狀態，優先使用
+                    gameActive = data.active;
+                } else {
+                    // 備用方案：如果時間已經比設定的最大時間少，代表正在倒數中
+                    const maxTime = parseInt(document.getElementById('gameTime').value) || 180;
+                    gameActive = !data.gameOver && data.time > 0 && data.time < maxTime;
+                }
+
+                document.getElementById('scoreRed').innerText = gameScores.red;
+                document.getElementById('scoreBlue').innerText = gameScores.blue;
+                let m = Math.floor(gameTimeLeft / 60), s = Math.floor(gameTimeLeft % 60);
+                document.getElementById('timerDisplay').innerText = `${m}:${s < 10 ? '0' + s : s}`;
+
+                if (data.gameOver) {
+                    let w = data.winner;
+                    alert(`⏰ 比賽結束！獲勝隊伍: ${w === 'draw' ? '平手' : (w === 'red' ? '紅隊 🔴' : '藍隊 🔵')}`);
+                }
+            });
+
+            // 接收地圖更新
+            socket.on('map', (data) => {
+                walls = data.walls;
+                renderGame();
+            });
+        }
+
+        // 老師端：上傳地圖給 Server
+        function broadcastMap() {
+            if (!socket || !socket.connected) return;
+            socket.emit('setMap', { roomId, walls });
+        }
+
+        // 避免重複綁定事件
+        let editorSetupDone = false;
+        function setupMapEditor() {
+            if (editorSetupDone) return;
+            editorSetupDone = true;
+
+            CANVAS.addEventListener('mousedown', (e) => {
+                if (!isCustomMapMode || gameActive) return;
+                const r = CANVAS.getBoundingClientRect();
+                let rawX = e.clientX - r.left;
+                let rawY = e.clientY - r.top;
+
+                // ✨ 強制貼齊與邊界檢查
+                startX = snap(clampX(rawX));
+                startY = snap(rawY);
+                isDrawing = true;
+            });
+
+            CANVAS.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                renderGame();
+                const r = CANVAS.getBoundingClientRect();
+                let rawX = e.clientX - r.left;
+                let rawY = e.clientY - r.top;
+
+                // ✨ 拖曳時也要計算貼齊
+                let currentX = snap(clampX(rawX));
+                let currentY = snap(rawY);
+
+                let w = currentX - startX;
+                let h = currentY - startY;
+
+                ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+                ctx.fillRect(startX, startY, w, h);
+                ctx.strokeStyle = "#0f0";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(startX, startY, w, h);
+            });
+
+            CANVAS.addEventListener('mouseup', (e) => {
+                if (!isDrawing) return;
+                isDrawing = false;
+                const r = CANVAS.getBoundingClientRect();
+                let rawX = e.clientX - r.left;
+                let rawY = e.clientY - r.top;
+
+                // ✨ 最終決定也是貼齊
+                let endX = snap(clampX(rawX));
+                let endY = snap(rawY);
+
+                let w = endX - startX;
+                let h = endY - startY;
+
+                // 計算左上角與絕對寬高，避免負數
+                let finalX = w < 0 ? endX : startX;
+                let finalY = h < 0 ? endY : startY;
+                let finalW = Math.abs(w);
+                let finalH = Math.abs(h);
+
+                // 點一下不拖曳時，自動產出 40x40 的單一方塊
+                if (finalW === 0) finalW = GRID_SIZE;
+                if (finalH === 0) finalH = GRID_SIZE;
+
+                if (finalW > 0 && finalH > 0) {
+                    const emojis = ['🧱', '🪨', '📦', '🛢️', '🌲', '🌵'];
+
+                    // ✨ 修正 1：更嚴謹地決定要繪製的 emoji
+                    let emj = currentDrawMode;
+                    if (currentDrawMode === 'random') {
+                        emj = emojis[Math.floor(Math.random() * emojis.length)];
+                    }
+
+                    // ✨ 核心修正：將拖曳的大範圍，切分成一個個 40x40 的小方塊來處理
+                    for (let gridX = finalX; gridX < finalX + finalW; gridX += GRID_SIZE) {
+                        for (let gridY = finalY; gridY < finalY + finalH; gridY += GRID_SIZE) {
+
+                            // 檢查這個 (gridX, gridY) 座標上是不是已經有牆壁了
+                            const existingIndex = walls.findIndex(w => w.x === gridX && w.y === gridY);
+
+                            // ✨ 修正 2：統一使用 currentDrawMode 判斷是否為橡皮擦
+                            if (currentDrawMode === 'blank') {
+                                // 🧽 【橡皮擦模式】：有東西就把它刪除
+                                if (existingIndex !== -1) {
+                                    walls.splice(existingIndex, 1);
+                                }
+                            } else {
+                                // 🧱 【繪圖模式】：有東西就替換，沒東西就新增
+                                if (existingIndex !== -1) {
+                                    walls[existingIndex].emoji = emj; // 覆蓋
+                                    walls[existingIndex].w = GRID_SIZE;
+                                    walls[existingIndex].h = GRID_SIZE;
+                                } else {
+                                    walls.push({
+                                        x: gridX,
+                                        y: gridY,
+                                        w: GRID_SIZE,
+                                        h: GRID_SIZE,
+                                        emoji: emj
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    broadcastMap();
+                }
+                renderGame();
+            });
+        }
+
+        function clearMap() {
+            // 提示老師確認，避免誤觸心血全毀
+            if (confirm('確定要清空整個戰場嗎？')) {
+                walls = [];
+
+                // 清空後自動解鎖編輯模式
+                if (!isCustomMapMode) {
+                    isCustomMapMode = true;
+                    document.getElementById('mapSelect').value = 'custom';
+                    setupMapEditor();
+                }
+
+                broadcastMap();
+                renderGame(); // 重繪畫布
+            }
+        }
+
+        function downloadMapConfig() {
+            const fullProject = {
+                level: { walls: walls },
+                blocks: null
+            };
+            const d = JSON.stringify(fullProject, null, 2);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([d], { type: 'application/json' }));
+            a.download = `map_${roomId}.json`;
+            a.click();
+        }
+
+        function loadMapFromFile(i) {
+            const f = i.files[0];
+            if (!f) return;
+            const r = new FileReader();
+            r.onload = e => {
+                try {
+                    const d = JSON.parse(e.target.result);
+                    let loadedWalls = [];
+
+                    if (d.level && d.level.walls) {
+                        loadedWalls = d.level.walls;
+                    } else if (d.walls) {
+                        loadedWalls = d.walls;
+                    } else if (Array.isArray(d)) {
+                        loadedWalls = d;
+                    }
+
+                    if (loadedWalls.length > 0 || (d.level && d.level.walls)) {
+                        // ✨ 修正順序：先切換為自訂模式（此時不會再被清空了）
+                        document.getElementById('mapSelect').value = 'custom';
+                        checkMapMode();
+
+                        // ✨ 再把剛讀取到的地圖資料正式放進遊戲中
+                        walls = loadedWalls;
+
+                        alert("✅ 地圖載入成功");
+                        broadcastMap(); // 如果還沒連線，這行會安靜地略過；如果有連線，就會立刻傳給學生
+                        renderGame();
+                    } else {
+                        alert("❌ 找不到地圖資料");
+                    }
+                } catch (err) {
+                    alert("❌ 格式錯誤");
+                }
+            };
+            r.readAsText(f);
+            i.value = '';
+        }
+
+        function hostResetGame() {
+            // 如果是自訂地圖模式先不重載地圖
+            if (!isCustomMapMode) loadMapData(document.getElementById('mapSelect').value);
+            const timeLimit = parseInt(document.getElementById('gameTime').value);
+            if (socket && socket.connected) {
+                socket.emit('resetGame', { roomId, timeLimit });
+            }
+            renderGame();
+        }
+
+        function hostStartGame() {
+            const timeLimit = parseInt(document.getElementById('gameTime').value);
+            if (socket && socket.connected) {
+                socket.emit('startGame', { roomId, timeLimit });
+            }
+        }
+
+        function loadMapData(t) {
+            walls = [];
+            if (t === 'obstacles') walls = [{ x: 120, y: 120, w: 40, h: 200, emoji: '🪨' }, { x: 440, y: 120, w: 40, h: 200, emoji: '🪨' }, { x: 280, y: 160, w: 80, h: 80, emoji: '🛢️' }];
+            else if (t === 'fortress') walls = [{ x: 200, y: 160, w: 200, h: 40, emoji: '🧱' }, { x: 200, y: 240, w: 200, h: 40, emoji: '🧱' }, { x: 200, y: 160, w: 40, h: 120, emoji: '🧱' }, { x: 360, y: 160, w: 40, h: 120, emoji: '🧱' }];
+            else if (t === 'maze') walls = [{ x: 120, y: 40, w: 40, h: 280, emoji: '🌲' }, { x: 240, y: 80, w: 40, h: 280, emoji: '🌲' }, { x: 360, y: 40, w: 40, h: 280, emoji: '🌲' }, { x: 480, y: 80, w: 40, h: 280, emoji: '🌲' }];
+            broadcastMap();  // 上傳到 Server（setMap 事件）
+            renderGame();
+        }
+
+        function renderGame() {
+            ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // ✨ 新增：繪製左右兩側禁建區提示
+            if (isCustomMapMode && !gameActive) {
+                ctx.fillStyle = "rgba(255, 82, 82, 0.1)";
+                ctx.fillRect(0, 0, SPAWN_WIDTH, CANVAS_H);
+                ctx.strokeStyle = "rgba(255, 82, 82, 0.5)";
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(SPAWN_WIDTH, 0); ctx.lineTo(SPAWN_WIDTH, CANVAS_H); ctx.stroke();
+                ctx.fillStyle = "rgba(255, 82, 82, 0.4)";
+                ctx.font = "14px Arial"; ctx.textAlign = "center";
+                ctx.fillText("🔴 紅隊重生禁建區", SPAWN_WIDTH / 2, 20);
+
+                ctx.fillStyle = "rgba(68, 138, 255, 0.1)";
+                ctx.fillRect(CANVAS_W - SPAWN_WIDTH, 0, SPAWN_WIDTH, CANVAS_H);
+                ctx.strokeStyle = "rgba(68, 138, 255, 0.5)";
+                ctx.beginPath(); ctx.moveTo(CANVAS_W - SPAWN_WIDTH, 0); ctx.lineTo(CANVAS_W - SPAWN_WIDTH, CANVAS_H); ctx.stroke();
+                ctx.fillStyle = "rgba(68, 138, 255, 0.4)";
+                ctx.fillText("🔵 藍隊重生禁建區", CANVAS_W - (SPAWN_WIDTH / 2), 20);
+                ctx.setLineDash([]); // 恢復實線
+            }
+
+            if (isCustomMapMode) {
+                ctx.strokeStyle = "#333"; ctx.lineWidth = 1;
+                // 配合 GRID_SIZE 的 40px 格線
+                for (let i = 0; i < CANVAS_W; i += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_H); ctx.stroke(); }
+                for (let i = 0; i < CANVAS_H; i += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_W, i); ctx.stroke(); }
+            }
+
+            walls.forEach(w => {
+                let wx = Number(w.x), wy = Number(w.y), ww = Number(w.w), wh = Number(w.h);
+
+
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(wx, wy, ww, wh);
+                ctx.clip();
+
+
+                ctx.font = "26px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                for (let ex = wx + 20; ex < wx + ww; ex += 40) {
+                    for (let ey = wy + 20; ey < wy + wh; ey += 40) {
+                        ctx.fillText(w.emoji || '🧱', ex, ey);
+                        //  ctx.fillText(w.emoji || '🧱', w.x + 20, w.y + 22); 
+                    }
+                }
+                ctx.restore();
+            });
+
+            bullets.forEach(b => {
+                ctx.fillStyle = b.team === 'red' ? '#ffaaaa' : '#aaaaff';
+                ctx.beginPath(); ctx.arc(Number(b.x), Number(b.y), 4, 0, Math.PI * 2); ctx.fill();
+            });
+
+            for (let id in players) {
+                let p = players[id]; if (p.hp <= 0) continue;
+                ctx.save(); ctx.translate(Number(p.x), Number(p.y));
+                ctx.fillStyle = "red"; ctx.fillRect(-15, -25, 30, 4);
+                ctx.fillStyle = "#0f0"; ctx.fillRect(-15, -25, 30 * (Number(p.hp) / 100), 4);
+                ctx.fillStyle = "#fff"; ctx.font = "10px Arial"; ctx.textAlign = "center"; ctx.fillText(p.name, 0, -30);
+                ctx.rotate(Number(p.angle) * Math.PI / 180);
+                ctx.fillStyle = p.team === 'red' ? '#d32f2f' : '#1976d2';
+                ctx.fillRect(-12, -12, 24, 24);
+                ctx.fillStyle = "#eee"; ctx.fillRect(0, -3, 20, 6);
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+    </script>
+    <footer>
+        Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chieh<br>
+        本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
+        © 2026 張世杰 (<a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>)
+    </footer>
+</body>
+
+</html>

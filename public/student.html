@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>🛡️ 坦克戰術指揮部: 學員終端</title>
+    <script src="https://unpkg.com/blockly@10.0.0/blockly_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/blocks_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/msg/zh-hant.js"></script>
+    <script src="https://unpkg.com/acorn@8.11.3/dist/acorn.js"></script>
+    <script src="https://unpkg.com/js-interpreter@5.0.0/lib/js-interpreter.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background: #222;
+            color: #eee;
+            overflow: hidden;
+        }
+
+        header {
+            background: #333;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #555;
+            height: 50px;
+        }
+
+        .score-board {
+            display: flex;
+            gap: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: #000;
+            padding: 5px 20px;
+            border-radius: 5px;
+            border: 1px solid #666;
+        }
+
+        .score-red {
+            color: #ff5252;
+        }
+
+        .score-blue {
+            color: #448aff;
+        }
+
+        .timer {
+            color: #ffeb3b;
+            font-family: monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-run {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-file {
+            background: #2196f3;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        #main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #blocklyDiv {
+            flex: 1;
+            border-right: 2px solid #444;
+        }
+
+        #game-wrapper {
+            width: 600px;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            border-left: 2px solid #444;
+            position: relative;
+        }
+
+        #gameCanvas {
+            background: #1a1a1a;
+            width: 600px;
+            height: 400px;
+        }
+
+        #console {
+            flex: 1;
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            border-top: 1px solid #333;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .panel {
+            background: #2c3e50;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #34495e;
+            width: 450px;
+            color: white;
+        }
+
+        .panel input,
+        .panel select {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .panel button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            background: #27ae60;
+            color: white;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        footer {
+            font-size: 11px;
+            color: #dbd3df;
+            text-align: center;
+            padding: 5px;
+            background: #31444e;
+            border-top: 1px solid #0f4c75;
+        }
+
+        .blocklyToolboxDiv {
+            background-color: #1b262c !important;
+        }
+
+        .blocklyTreeLabel {
+            color: #fff !important;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="overlay">
+        <div class="panel">
+            <h2>🛡️ 學員登入系統</h2>
+            <label>房間號碼</label>
+            <input type="text" id="roomId" value="101">
+            <label>選擇隊伍</label>
+            <select id="teamSelect">
+                <option value="red">🔴 紅隊 (攻方 - 左側)</option>
+                <option value="blue">🔵 藍隊 (守方 - 右側)</option>
+            </select>
+            <label>戰術代號與位置</label>
+            <select id="playerSlotSelect">
+                <option value="0">Alpha (上路位置)</option>
+                <option value="1">Bravo (中路位置)</option>
+                <option value="2">Charlie (下路位置)</option>
+            </select>
+            <label>Socket 伺服器</label>
+            <input type="text" id="mqttUrl" value="http://localhost:3000" placeholder="例如 http://192.168.1.10:3000">
+            <button onclick="connectSystem()">🚀 進入戰場</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="score-board">
+            <span class="score-red">RED: <span id="scoreRed">0</span></span>
+            <span>|</span>
+            <span class="timer" id="timerDisplay">00:00</span>
+            <span>|</span>
+            <span class="score-blue">BLUE: <span id="scoreBlue">0</span></span>
+        </div>
+        <div id="controls">
+            <span id="statusText" style="margin-right:15px; font-size:0.9rem; color:#aaa;">未連線</span>
+            <button class="btn-file" onclick="saveCode()">💾 存檔</button>
+            <button class="btn-file" onclick="document.getElementById('fileInput').click()">📂 讀檔</button>
+            <input type="file" id="fileInput" accept=".json,.xml" onchange="loadCodeFromFile(this)">
+            <button class="btn-run" onclick="runCode()">▶️ 啟動 AI</button>
+            <button class="btn-stop" onclick="stopCode()">⏹️ 停止</button>
+        </div>
+    </header>
+
+    <div id="main-area">
+        <div id="blocklyDiv"></div>
+        <div id="game-wrapper">
+            <canvas id="gameCanvas" width="600" height="400"></canvas>
+            <div id="console"></div>
+        </div>
+    </div>
+
+    <xml id="toolbox" style="display: none">
+        <category name="⚔️ 戰鬥感測" colour="0">
+            <block type="tank_fire"></block>
+            <block type="tank_is_bullet_incoming"></block>
+            <block type="tank_scan_bullet_dist"></block>
+            <block type="tank_scan_bullet_angle"></block>
+            <block type="tank_scan_wall"></block>
+            <block type="tank_shot_blocked"></block>
+            <block type="tank_scan_enemy"></block>
+            <block type="tank_scan_angle"></block>
+            <block type="tank_get_enemy_count"></block>
+            <block type="tank_get_hp"></block>
+        </category>
+        <category name="📍 導航定位" colour="190">
+            <block type="tank_get_x"></block>
+            <block type="tank_get_y"></block>
+        </category>
+        <category name="🚜 移動控制" colour="210">
+            <block type="tank_move"></block>
+            <block type="tank_move_back"></block>
+            <block type="tank_turn">
+                <value name="DEG">
+                    <shadow type="math_number">
+                        <field name="NUM">90</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="tank_turn_left">
+                <value name="DEG">
+                    <shadow type="math_number">
+                        <field name="NUM">90</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="tank_stop"></block>
+        </category>
+        <category name="🔀 邏輯" colour="210">
+            <block type="controls_if"></block>
+            <block type="logic_compare"></block>
+            <block type="logic_operation"></block>
+            <block type="logic_negate"></block>
+            <block type="logic_boolean"></block>
+            <block type="logic_null"></block>
+            <block type="logic_ternary"></block>
+        </category>
+
+        <category name="🔁 迴圈" colour="120">
+            <block type="controls_repeat_ext">
+                <value name="TIMES">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="controls_whileUntil"></block>
+            <block type="controls_for">
+                <value name="FROM">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="TO">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+                <value name="BY">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="controls_forEach"></block>
+            <block type="controls_flow_statements"></block>
+        </category>
+
+        <category name="🧮 運算" colour="230">
+            <block type="math_number">
+                <field name="NUM">123</field>
+            </block>
+            <block type="math_arithmetic">
+                <value name="A">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="B">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_single">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">9</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_trig">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">45</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_constant"></block>
+            <block type="math_number_property">
+                <value name="NUMBER_TO_CHECK">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_round">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">3.1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_on_list"></block>
+            <block type="math_modulo">
+                <value name="DIVIDEND">
+                    <shadow type="math_number">
+                        <field name="NUM">64</field>
+                    </shadow>
+                </value>
+                <value name="DIVISOR">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_constrain">
+                <value name="VALUE">
+                    <shadow type="math_number">
+                        <field name="NUM">50</field>
+                    </shadow>
+                </value>
+                <value name="LOW">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="HIGH">
+                    <shadow type="math_number">
+                        <field name="NUM">100</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_random_int">
+                <value name="FROM">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="TO">
+                    <shadow type="math_number">
+                        <field name="NUM">100</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_random_float"></block>
+        </category>
+
+        <category name="📝 文字" colour="160">
+            <block type="text"></block>
+            <block type="text_join"></block>
+            <block type="text_append">
+                <value name="TEXT">
+                    <shadow type="text"></shadow>
+                </value>
+            </block>
+            <block type="text_length">
+                <value name="VALUE">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_isEmpty">
+                <value name="VALUE">
+                    <shadow type="text">
+                        <field name="TEXT"></field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_indexOf">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+                <value name="FIND">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_charAt">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+            </block>
+            <block type="text_getSubstring">
+                <value name="STRING">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+            </block>
+            <block type="text_changeCase">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_trim">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT"> abc </field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+        </category>
+
+        <category name="📜 清單" colour="260">
+            <block type="lists_create_with">
+                <mutation items="0"></mutation>
+            </block>
+            <block type="lists_create_with"></block>
+            <block type="lists_repeat">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">5</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="lists_length"></block>
+            <block type="lists_isEmpty"></block>
+            <block type="lists_indexOf">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_getIndex">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_setIndex">
+                <value name="LIST">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_getSublist">
+                <value name="LIST">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_split">
+                <value name="DELIM">
+                    <shadow type="text">
+                        <field name="TEXT">,</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="lists_sort"></block>
+        </category>
+        <category name="📦 變數" colour="330" custom="VARIABLE"></category>
+        <category name="ƒ 函式" colour="290" custom="PROCEDURE"></category>
+    </xml>
+
+    <script>
+        // --- 全域變數設定 ---
+        const CANVAS_W = 600; const CANVAS_H = 400;
+        const ctx = document.getElementById('gameCanvas').getContext('2d');
+
+        let workspace = null;
+        let interpreter = null;
+        let isRunning = false;
+
+        // 遊戲參數
+        let myId = "", myTeam = "red", mySlot = 0, roomId = "101";
+        let players = {}, bullets = [], walls = [];
+        let gameScores = { red: 0, blue: 0 }, gameTimeLeft = 0;
+        let socket;
+
+        // ★ 可在此調整動作速度 (毫秒) ★
+        const GAME_ACTION_DELAY = 500;
+
+        // --- 本地預測 ---
+        const BULLET_SPEED = 8;
+        let lastStateTime  = 0;
+        let localBullets   = [];
+        let localMe        = null;   // 自己坦克的預測位置
+
+        // --- 60fps 獨立渲染迴圈 ---
+        let renderLoopStarted = false;
+        function startRenderLoop() {
+            if (renderLoopStarted) return;
+            renderLoopStarted = true;
+            function loop(now) { renderSmooth(now); requestAnimationFrame(loop); }
+            requestAnimationFrame(loop);
+        }
+
+        // --- 平滑渲染 ---
+        function renderSmooth(now) {
+            const elapsed = Math.min((now - lastStateTime) / 1000, 0.15);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // 牆壁
+            walls.forEach(w => {
+                let wx = Number(w.x), wy = Number(w.y), ww = Number(w.w), wh = Number(w.h);
+                ctx.save();
+                ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+                ctx.font = '26px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                for (let ex = wx + 20; ex < wx + ww; ex += 40)
+                    for (let ey = wy + 20; ey < wy + wh; ey += 40)
+                        ctx.fillText(w.emoji || '🧱', ex, ey);
+                ctx.restore();
+            });
+
+            // 子彈插值補算
+            localBullets.forEach(b => {
+                const rad = Number(b.angle) * Math.PI / 180;
+                const px  = Number(b.x) + Math.cos(rad) * BULLET_SPEED * elapsed * 20;
+                const py  = Number(b.y) + Math.sin(rad) * BULLET_SPEED * elapsed * 20;
+                ctx.fillStyle   = b.team === 'red' ? '#ff6b6b' : '#74b9ff';
+                ctx.shadowColor = b.team === 'red' ? '#ff0000' : '#0000ff';
+                ctx.shadowBlur  = 6;
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur  = 0;
+            });
+
+            // 坦克
+            for (const id in players) {
+                const p = players[id];
+                if (p.hp <= 0) continue;
+                // 自己用本地預測位置，其他人用伺服器位置
+                let dx = Number(p.x), dy = Number(p.y), da = Number(p.angle);
+                if (id === myId && localMe) { dx = localMe.x; dy = localMe.y; da = localMe.angle; }
+                const php = Number(p.hp);
+                ctx.save(); ctx.translate(dx, dy);
+                if (id === myId) {
+                    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.stroke();
+                    ctx.fillStyle = '#FFD700'; ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center'; ctx.fillText('▼ YOU', 0, -45);
+                }
+                ctx.fillStyle = 'red';  ctx.fillRect(-15, -25, 30, 4);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(-15, -25, 30 * (php / 100), 4);
+                ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
+                ctx.textAlign = 'center'; ctx.fillText(p.name, 0, -30);
+                ctx.rotate(da * Math.PI / 180);
+                ctx.fillStyle = p.team === 'red' ? '#d32f2f' : '#1976d2';
+                ctx.fillRect(-12, -12, 24, 24);
+                if (id === myId) { ctx.strokeStyle = '#fff'; ctx.strokeRect(-12, -12, 24, 24); }
+                ctx.fillStyle = '#eee'; ctx.fillRect(0, -3, 20, 6);
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- 連線系統 ---
+        function connectSystem() {
+            roomId = document.getElementById('roomId').value;
+            myTeam = document.getElementById('teamSelect').value;
+            const slotSelect = document.getElementById('playerSlotSelect');
+            mySlot = parseInt(slotSelect.value);
+            const myName = slotSelect.options[slotSelect.selectedIndex].text.split(' ')[0];
+            myId = "p_" + Math.random().toString(36).substr(2, 6);
+
+            // 取得伺服器網址
+            const serverUrl = document.getElementById('mqttUrl').value;
+            if (!serverUrl) { alert("請輸入伺服器網址！"); return; }
+
+            // 建立連線
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                document.getElementById('overlay').style.display = 'none';
+                const statusSpan = document.getElementById('statusText');
+                statusSpan.innerHTML = `<strong style="color:${myTeam === 'red' ? '#ff5252' : '#448aff'}">${myTeam === 'red' ? '🔴' : '🔵'} ${myName}</strong>`;
+
+                // 加入房間
+                socket.emit('joinRoom', roomId);
+                socket.emit('playerJoin', { roomId, id: myId, name: myName, team: myTeam, slot: mySlot });
+                log('✅ 連線成功 (Server 端物理版)');
+                startRenderLoop();   // 🌟 啟動 60fps 渲染迴圈
+            });
+
+            socket.on('connect_error', (err) => {
+                alert('連線失敗！請確認 Server 已啟動且網址正確。');
+                console.error(err);
+            });
+
+            // 接收地圖
+            socket.on('map', (data) => { walls = data.walls; });
+
+            // 接收 Server 算好的遊戲狀態
+            socket.on('state', (data) => {
+                players      = data.players;
+                bullets      = data.bullets;
+                localBullets = bullets.map(b => ({ ...b }));  // 建立插值副本
+                lastStateTime = performance.now();
+                gameScores   = data.scores;
+                gameTimeLeft = data.time;
+                updateUI();
+
+                // 伺服器確認後同步本地預測（避免誤差累積）
+                if (players[myId]) {
+                    if (!localMe) localMe = { x: players[myId].x, y: players[myId].y, angle: players[myId].angle };
+                    else {
+                        // 平滑修正：取平均值避免跳動
+                        localMe.x     = localMe.x     * 0.5 + players[myId].x     * 0.5;
+                        localMe.y     = localMe.y     * 0.5 + players[myId].y     * 0.5;
+                        localMe.angle = players[myId].angle;
+                    }
+                }
+
+                if (data.gameOver) {
+                    stopCode();
+                    let msg = data.winner === 'draw' ? '🤝 比賽平手！'
+                        : (data.winner === myTeam ? '🎉 恭喜！你的隊伍獲勝了！🏆' : '💀 惜敗... 下次再贏回來！');
+                    setTimeout(() => alert(msg), 100);
+                }
+            });
+        }
+
+        function sendCmd(action, val) {
+            if (!socket) return;
+
+            // 🌟 本地預測：指令發出同時立即更新本地位置
+            if (localMe) {
+                if (action === 'move') {
+                    const rad = localMe.angle * Math.PI / 180;
+                    const nx  = localMe.x + Math.cos(rad) * val;
+                    const ny  = localMe.y + Math.sin(rad) * val;
+                    if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
+                        localMe.x = nx; localMe.y = ny;
+                    }
+                } else if (action === 'move_back') {
+                    const rad = localMe.angle * Math.PI / 180;
+                    const nx  = localMe.x - Math.cos(rad) * val;
+                    const ny  = localMe.y - Math.sin(rad) * val;
+                    if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
+                        localMe.x = nx; localMe.y = ny;
+                    }
+                } else if (action === 'turn') {
+                    localMe.angle += val;
+                }
+            }
+
+            // cmd 直接送到 Server，Server 計算後廣播給所有人
+            socket.emit('cmd', { roomId, id: myId, action, val });
+        }
+
+        function updateUI() {
+            document.getElementById('scoreRed').innerText = gameScores.red;
+            document.getElementById('scoreBlue').innerText = gameScores.blue;
+            let m = Math.floor(gameTimeLeft / 60), s = Math.floor(gameTimeLeft % 60);
+            document.getElementById('timerDisplay').innerText = `${m}:${s < 10 ? '0' + s : s}`;
+        }
+
+        // --- Blockly 初始化 ---
+        window.onload = function () {
+            workspace = Blockly.inject('blocklyDiv', {
+                toolbox: document.getElementById('toolbox'), scrollbars: true, grid: { spacing: 20, length: 3, colour: '#444', snap: true }, zoom: { controls: true, wheel: true }
+            });
+            defineBlocks();
+        };
+
+        function defineBlocks() {
+        
+ Blockly.Blocks['tank_move'] = { 
+    init: function () { 
+        this.jsonInit({ 
+            "message0": "🚀 坦克前進", 
+            "previousStatement": null, 
+            "nextStatement": null, 
+            "colour": 210 
+        }); 
+    } 
+};
+// 🎯 修正：對戰版必須使用 apiCmd('move', 20)
+Blockly.JavaScript.forBlock['tank_move'] = () => `apiCmd('move', 20);\n`;
+
+// 🔙 坦克後退 (固定 20 步)
+Blockly.Blocks['tank_move_back'] = { 
+    init: function () { 
+        this.jsonInit({ 
+            "message0": "🔙 坦克後退", 
+            "previousStatement": null, 
+            "nextStatement": null, 
+            "colour": 210 
+        }); 
+    } 
+};
+// 🎯 修正：對戰版使用 apiCmd('move_back', 20)
+Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\n`;
+            // 🔄 轉向
+            Blockly.Blocks['tank_turn'] = { init: function () { this.jsonInit({ "message0": "🔄 右轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
+            Blockly.JavaScript.forBlock['tank_turn'] = b => `apiCmd('turn', ${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
+
+            Blockly.Blocks['tank_turn_left'] = { init: function () { this.jsonInit({ "message0": "🔄 左轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
+            Blockly.JavaScript.forBlock['tank_turn_left'] = b => `apiCmd('turn', -${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
+
+            // 🛑 停止與發射
+            Blockly.Blocks['tank_stop'] = { init: function () { this.jsonInit({ "message0": "🛑 停止移動", "previousStatement": null, "nextStatement": null, "colour": 210 }); } };
+            Blockly.JavaScript.forBlock['tank_stop'] = () => `apiCmd('stop', 0);\n`;
+
+            Blockly.Blocks['tank_fire'] = { init: function () { this.jsonInit({ "message0": "🔥 發射砲彈", "previousStatement": null, "nextStatement": null, "colour": 0 }); } };
+            Blockly.JavaScript.forBlock['tank_fire'] = () => `apiCmd('fire', 0);\n`;
+
+            // 📡 感測器
+            const makeSensor = (n, t, r) => { Blockly.Blocks[n] = { init: function () { this.jsonInit({ "message0": t, "output": r, "colour": 0 }); } }; Blockly.JavaScript.forBlock[n] = () => [`apiSensor('${n}')`, Blockly.JavaScript.ORDER_NONE]; };
+            makeSensor('tank_is_bullet_incoming', "⚠️ 有炮彈朝我飛來", "Boolean");
+            makeSensor('tank_scan_bullet_dist', "📡 來襲炮彈距離", "Number");
+            makeSensor('tank_scan_bullet_angle', "📡 來襲炮彈角度", "Number");
+            makeSensor('tank_scan_enemy', "📡 最近敵人距離", "Number");
+            makeSensor('tank_scan_angle', "📐 最近敵人角度", "Number");
+            makeSensor('tank_scan_wall', "🚧 前方障礙距離", "Number");
+            makeSensor('tank_shot_blocked', "⛔ 射擊線受阻", "Boolean");
+            makeSensor('tank_get_enemy_count', "🔢 存活敵人數", "Number");
+            makeSensor('tank_get_hp', "❤️ 當前血量", "Number");
+            makeSensor('tank_get_x', "📍 取得 X 座標", "Number");
+            makeSensor('tank_get_y', "📍 取得 Y 座標", "Number");
+
+            // 攔截預設的 print 積木改為彈出視窗
+            Blockly.JavaScript.forBlock['text_print'] = function (block) {
+                var msg = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE) || "''";
+                return 'alert(' + msg + ');\n';
+            };
+        }
+
+        // --- 核心：直譯器 API 設定 ---
+        function initApi(intr, scope) {
+            const apiCmdWrapper = function (action, val, callback) {
+                if (!isRunning) { callback(); return; }
+                if (action === 'move_back') { action = 'move'; val = -val; }
+
+                sendCmd(action, val);
+                setTimeout(function () { callback(); }, GAME_ACTION_DELAY);
+            };
+
+            intr.setProperty(scope, 'apiCmd', intr.createAsyncFunction(apiCmdWrapper));
+            const wrap = (n, f) => intr.setProperty(scope, n, intr.createNativeFunction(f));
+
+            wrap('apiSensor', (type) => {
+                let me = players[myId];
+                if (!me || me.hp <= 0) return (type === 'tank_shot_blocked' ? false : 999);
+                // 🛡️ 新增：偵測敵方來襲炮彈邏輯
+                if (type === 'tank_is_bullet_incoming' || type === 'tank_scan_bullet_dist' || type === 'tank_scan_bullet_angle') {
+                    let nearestBullet = null;
+                    let minB_Dist = 180; // 只偵測有效射程 (180) 內的危險
+
+                    for (let b of bullets) {
+                        if (b.team !== me.team) { // 只管敵方的炮彈
+                            let dx = me.x - b.x, dy = me.y - b.y;
+                            let dist = Math.sqrt(dx * dx + dy * dy);
+
+                            // 計算炮彈指向玩家的絕對角度
+                            let angleToMe = Math.atan2(dy, dx) * 180 / Math.PI;
+                            // 判斷炮彈實際飛行角度，是否大致朝玩家飛來 (容錯 ±20 度)
+                            let diff = b.angle - angleToMe;
+                            while (diff > 180) diff -= 360;
+                            while (diff <= -180) diff += 360;
+
+                            if (Math.abs(diff) < 20 && dist < minB_Dist) {
+                                minB_Dist = dist;
+                                nearestBullet = b;
+                            }
+                        }
+                    }
+
+                    if (type === 'tank_is_bullet_incoming') return nearestBullet !== null;
+                    if (type === 'tank_scan_bullet_dist') return nearestBullet ? minB_Dist : 999;
+                    if (type === 'tank_scan_bullet_angle') {
+                        if (!nearestBullet) return 0;
+                        let dx = nearestBullet.x - me.x, dy = nearestBullet.y - me.y;
+                        let absAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+                        // 轉換為相對於「自身車頭方向」的角度，方便學生寫「轉向指令」
+                        let relAngle = absAngle - me.angle;
+                        while (relAngle > 180) relAngle -= 360;
+                        while (relAngle <= -180) relAngle += 360;
+                        return relAngle;
+                    }
+                }
+                if (type === 'tank_get_hp') return me.hp;
+                if (type === 'tank_get_x') return me.x;
+                if (type === 'tank_get_y') return me.y;
+
+                let enemies = [];
+                for (let pid in players) {
+                    let p = players[pid];
+                    if (p.team !== me.team && p.hp > 0) enemies.push(p);
+                }
+                if (type === 'tank_get_enemy_count') return enemies.length;
+
+                let target = null, minD = 9999;
+                for (let p of enemies) {
+                    let d = Math.sqrt((p.x - me.x) ** 2 + (p.y - me.y) ** 2);
+                    if (d < minD) { minD = d; target = p; }
+                }
+                if (type === 'tank_scan_enemy') return (minD === 9999 ? 999 : minD);
+
+                if (type === 'tank_scan_angle') {
+                    if (target) {
+                        let angle = Math.atan2(target.y - me.y, target.x - me.x) * 180 / Math.PI;
+                        let diff = angle - me.angle;
+                        while (diff <= -180) diff += 360;
+                        while (diff > 180) diff -= 360;
+                        return diff;
+                    }
+                    return 0;
+                }
+
+                if (type === 'tank_scan_wall') {
+                    const maxDist = 400;
+                    let rad = me.angle * Math.PI / 180;
+                    let dx = Math.cos(rad), dy = Math.sin(rad);
+                    for (let d = 0; d < maxDist; d += 10) {
+                        let cx = me.x + dx * d, cy = me.y + dy * d;
+                        if (checkCollision(cx, cy, 2)) return d;
+                    }
+                    return maxDist;
+                }
+
+                if (type === 'tank_shot_blocked') {
+                    if (!target) return false;
+                    let dx = target.x - me.x, dy = target.y - me.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let stepX = dx / dist, stepY = dy / dist;
+                    for (let i = 20; i < dist - 20; i += 10) {
+                        let checkX = me.x + (stepX * i), checkY = me.y + (stepY * i);
+                        if (checkCollision(checkX, checkY, 2)) return true;
+                    }
+                    return false;
+                }
+            });
+
+            wrap('log', (m) => log(m));
+            wrap('alert', (text) => alert(text));
+        }
+
+        function checkCollision(x, y, r) {
+            if (x < r || x > CANVAS_W - r || y < r || y > CANVAS_H - r) return true;
+            if (walls) {
+                for (let w of walls) {
+                    let wx = Number(w.x), wy = Number(w.y), ww = Number(w.w), wh = Number(w.h);
+                    if (x > wx - r && x < wx + ww + r && y > wy - r && y < wy + wh + r) return true;
+                }
+            }
+            return false;
+        }
+
+        function runCode() {
+            if (!players[myId] || players[myId].hp <= 0) { alert("尚未重生或連線！"); return; }
+            const code = Blockly.JavaScript.workspaceToCode(workspace);
+            interpreter = new Interpreter(code, initApi);
+            isRunning = true;
+            log("🤖 AI 啟動...");
+            stepCode();
+        }
+
+        function stepCode() {
+            if (!isRunning) return;
+            try {
+                if (interpreter.step()) {
+                    setTimeout(stepCode, 0);
+                } else {
+                    log("🏁 程式執行完畢");
+                    isRunning = false;
+                }
+            } catch (e) {
+                log("❌ 程式錯誤: " + e);
+                isRunning = false;
+            }
+        }
+
+        function stopCode() { isRunning = false; log("⏸️ AI 停止"); }
+        function log(m) { let c = document.getElementById('console'); c.innerHTML += `<div>> ${m}</div>`; c.scrollTop = c.scrollHeight; }
+
+        function saveCode() {
+            const state = Blockly.serialization.workspaces.save(workspace);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+            a.download = 'tank_student_code.json';
+            a.click();
+            log("💾 已儲存程式碼 (JSON格式)");
+        }
+
+        function loadCodeFromFile(i) {
+            const f = i.files[0]; if (!f) return;
+            const r = new FileReader();
+            r.onload = e => {
+                workspace.clear();
+                try {
+                    const state = JSON.parse(e.target.result);
+                    Blockly.serialization.workspaces.load(state, workspace);
+                    log("📂 程式載入成功 (JSON)");
+                } catch (err) {
+                    try {
+                        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(e.target.result), workspace);
+                        log("📂 舊版程式載入成功 (XML)");
+                    } catch (err2) {
+                        alert("❌ 格式錯誤");
+                    }
+                }
+            };
+            r.readAsText(f); i.value = '';
+        }
+    </script>
+<footer>
+    Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chieh<br>
+    本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
+    © 2026 張世杰 (<a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>)
+</footer>
+</body>
+</html>
