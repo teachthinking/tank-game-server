@@ -674,38 +674,48 @@
         }
 
         // --- 連線系統 ---
+        // --- 連線系統 ---
         function connectSystem() {
-    const url = document.getElementById('serverUrl').value;
-    const mode = document.querySelector('input[name="gameMode"]:checked').value;
-    const name = document.getElementById('playerName').value || '佚名';
+            const url = document.getElementById('serverUrl').value;
+            const mode = document.querySelector('input[name="gameMode"]:checked').value;
+            const name = document.getElementById('playerName').value || '佚名';
 
-    socket = io(url);
-    socket.on('connect', () => {
-        log("🟢 連線成功，請求加入遊戲...");
-        document.getElementById('loginPanel').style.display = 'none';
-        
-        if (mode === 'class') {
-            // 原本的老師開房模式
-            const roomId = document.getElementById('roomId').value;
-            const team = document.getElementById('team').value;
-            const slot = document.getElementById('slot').value;
-            socket.emit('playerJoin', { id: socket.id, name, roomId, team, slot });
-        } else {
-            // 自由練習模式
-            const mapId = document.getElementById('practiceMap').value;
-            const botCount = document.getElementById('botCount').value;
-            // 練習模式統一加入名為 "practice_room" 的房間，隊伍強制為藍隊(玩家)打紅隊(AI)
-            socket.emit('joinPractice', { 
-                id: socket.id, 
-                name, 
-                mapId, 
-                botCount: parseInt(botCount) 
+            socket = io(url);
+            socket.on('connect', () => {
+                log("🟢 連線成功，請求加入遊戲...");
+                document.getElementById('loginPanel').style.display = 'none';
+                
+                // 🌟【關鍵修復 1】：儲存自己的 ID，這樣才知道畫布上哪台坦克是自己的
+                myId = socket.id; 
+
+                if (mode === 'class') {
+                    // 原本的老師開房模式
+                    roomId = document.getElementById('roomId').value;
+                    myTeam = document.getElementById('team').value;
+                    const slot = document.getElementById('slot').value;
+                    socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot });
+                } else {
+                    // 自由練習模式
+                    roomId = "practice_room"; // 強制設定房號為練習房
+                    myTeam = 'blue';          // 練習模式玩家永遠是藍隊
+                    const mapId = document.getElementById('practiceMap').value;
+                    const botCount = document.getElementById('botCount').value;
+                    socket.emit('joinPractice', { 
+                        id: socket.id, 
+                        name, 
+                        mapId, 
+                        botCount: parseInt(botCount) 
+                    });
+                }
+
+                // 🌟【關鍵修復 2】：連線成功後，啟動 60fps 畫面渲染迴圈！
+                startRenderLoop();
             });
-        }
-    });
 
             // 接收地圖
-            socket.on('map', (data) => { walls = data.walls; });
+            socket.on('map', (data) => { 
+                walls = data.walls; 
+            });
 
             // 接收 Server 算好的遊戲狀態
             socket.on('state', (data) => {
