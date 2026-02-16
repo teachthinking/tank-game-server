@@ -7,11 +7,11 @@ const app = express();
 const http = require('http').createServer(app);
 
 // 加上 methods 允許跨網域連線
-const io = require('socket.io')(http, { 
-    cors: { 
-        origin: "*", 
+const io = require('socket.io')(http, {
+    cors: {
+        origin: "*",
         methods: ["GET", "POST"]
-    } 
+    }
 });
 
 app.use(express.static(__dirname + '/public'));
@@ -19,16 +19,16 @@ app.use(express.static(__dirname + '/public'));
 // ============================================================
 //  常數（與前端保持一致）
 // ============================================================
-const CANVAS_W       = 600;
-const CANVAS_H       = 400;
-const BULLET_SPEED   = 8;
-const BULLET_RANGE   = 180;
-const TANK_RADIUS    = 12;
-const BULLET_RADIUS  = 4;
-const HIT_RADIUS     = 15;
+const CANVAS_W = 600;
+const CANVAS_H = 400;
+const BULLET_SPEED = 8;
+const BULLET_RANGE = 180;
+const TANK_RADIUS = 12;
+const BULLET_RADIUS = 4;
+const HIT_RADIUS = 15;
 const COOLDOWN_TICKS = 15;    // 開火冷卻 tick 數
-const RESPAWN_MS     = 3000;  // 重生延遲 ms
-const TICK_MS        = 50;    // 物理迴圈間隔 (20 fps 邏輯)
+const RESPAWN_MS = 3000;  // 重生延遲 ms
+const TICK_MS = 50;    // 物理迴圈間隔 (20 fps 邏輯)
 
 
 // ============================================================
@@ -55,13 +55,13 @@ const rooms = {};
 function getRoom(roomId) {
     if (!rooms[roomId]) {
         rooms[roomId] = {
-            players:    {},
-            bullets:    [],
-            walls:      [],
-            scores:     { red: 0, blue: 0 },
-            timeLeft:   180,
-            active:     false,
-            tickCount:  0,
+            players: {},
+            bullets: [],
+            walls: [],
+            scores: { red: 0, blue: 0 },
+            timeLeft: 180,
+            active: false,
+            tickCount: 0,
             loopHandle: null
         };
     }
@@ -94,10 +94,10 @@ function applyCmd(room, data) {
     if (data.action === 'move') {
         const stepSize = 2;
         const steps = Math.floor(Math.abs(data.val) / stepSize);
-        const dir   = data.val >= 0 ? 1 : -1;
-        const rad   = p.angle * Math.PI / 180;
-        const dx    = Math.cos(rad) * stepSize * dir;
-        const dy    = Math.sin(rad) * stepSize * dir;
+        const dir = data.val >= 0 ? 1 : -1;
+        const rad = p.angle * Math.PI / 180;
+        const dx = Math.cos(rad) * stepSize * dir;
+        const dy = Math.sin(rad) * stepSize * dir;
         for (let i = 0; i < steps; i++) {
             if (checkCol(room.walls, p.x + dx, p.y + dy, TANK_RADIUS)) break;
             p.x += dx; p.y += dy;
@@ -111,7 +111,7 @@ function applyCmd(room, data) {
             x: p.x, y: p.y,
             angle: p.angle,
             owner: p.id,
-            team:  p.team,
+            team: p.team,
             distance: 0,
             maxRange: BULLET_RANGE
         });
@@ -126,12 +126,12 @@ function updateBots(room) {
         if (p.isBot && p.hp > 0) {
             // 簡單 AI 邏輯：每隔一段時間隨機轉向並開火，平時一直往前走
             p.botTimer--;
-            
+
             if (p.botTimer <= 0) {
                 // 決定下一個動作 (1~3 秒換一次動作)
-                p.botTimer = 20 + Math.random() * 40; 
+                p.botTimer = 20 + Math.random() * 40;
                 p.angle = Math.floor(Math.random() * 360); // 隨機轉向
-                
+
                 // 隨機開火 (30% 機率)
                 if (Math.random() > 0.3 && p.cooldown <= 0) {
                     room.bullets.push({
@@ -150,14 +150,14 @@ function updateBots(room) {
             let rad = p.angle * Math.PI / 180;
             let nx = p.x + Math.cos(rad) * 2; // AI 走慢一點 (速度2)
             let ny = p.y + Math.sin(rad) * 2;
-            
+
             // 碰撞偵測 (使用您的 checkCol 函數)
             if (!checkCol(room.walls, nx, ny, TANK_RADIUS)) {
                 p.x = nx;
                 p.y = ny;
             } else {
                 // 撞牆了就提早改變方向
-                p.botTimer = 0; 
+                p.botTimer = 0;
             }
         }
     }
@@ -247,8 +247,8 @@ function buildState(room, gameOver = false, winner = null) {
     return {
         players: room.players,
         bullets: room.bullets,
-        scores:  room.scores,
-        time:    room.timeLeft,
+        scores: room.scores,
+        time: room.timeLeft,
         gameOver,
         winner
     };
@@ -273,7 +273,7 @@ io.on('connection', (socket) => {
         socket.roomId = roomId;
         const room = getRoom(roomId);
         startLoop(roomId);
-        socket.emit('map',   { walls: room.walls });
+        socket.emit('map', { walls: room.walls });
         socket.emit('state', buildState(room));
     });
 
@@ -290,10 +290,10 @@ io.on('connection', (socket) => {
     // 老師開始比賽
     socket.on('startGame', (data) => {
         const room = getRoom(data.roomId);
-        room.active   = true;
+        room.active = true;
         room.timeLeft = data.timeLimit || 180;
-        room.scores   = { red: 0, blue: 0 };
-        room.bullets  = [];
+        room.scores = { red: 0, blue: 0 };
+        room.bullets = [];
         io.to(data.roomId).emit('state', buildState(room));
         console.log(`🔔 房間 ${data.roomId} 比賽開始`);
     });
@@ -301,21 +301,21 @@ io.on('connection', (socket) => {
     // 老師重置比賽
     socket.on('resetGame', (data) => {
         const room = getRoom(data.roomId);
-        room.active   = false;
-        room.bullets  = [];
-        room.scores   = { red: 0, blue: 0 };
+        room.active = false;
+        room.bullets = [];
+        room.scores = { red: 0, blue: 0 };
         room.timeLeft = data.timeLimit || 180;
         for (const id in room.players) {
             const p = room.players[id];
             // 若為電腦則不強制重生至固定點，或依照需求修改
-            if(!p.isBot) {
+            if (!p.isBot) {
                 const s = getSpawn(p.team, p.slot);
-                p.x = s.x; p.y = s.y; p.angle = s.a; 
+                p.x = s.x; p.y = s.y; p.angle = s.a;
             }
             p.hp = 100; p.cooldown = 0;
         }
         io.to(data.roomId).emit('state', buildState(room));
-        io.to(data.roomId).emit('map',   { walls: room.walls });
+        io.to(data.roomId).emit('map', { walls: room.walls });
         console.log(`♻️  房間 ${data.roomId} 重置`);
     });
 
@@ -352,7 +352,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('斷線:', socket.id);
         const roomId = socket.roomId;
-        const pid    = socket.playerId;
+        const pid = socket.playerId;
         if (roomId && pid && rooms[roomId]) {
             delete rooms[roomId].players[pid];
             io.to(roomId).emit('state', buildState(rooms[roomId]));
@@ -363,19 +363,19 @@ io.on('connection', (socket) => {
     socket.on('joinPractice', (data) => {
         const PR_ID = "practice_room"; // 固定的練習房號
         const room = getRoom(PR_ID);
-        
+
         // 如果房間還沒啟動，初始化地圖跟 AI
         if (!room.active) {
             room.active = true;
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             room.timeLeft = 999; // 練習模式時間無限
-            
+
             // 生成 AI 機器人 (設定為紅隊)
             for (let i = 0; i < data.botCount; i++) {
                 let botId = 'bot_' + i + '_' + Date.now();
                 room.players[botId] = {
-                    id: botId, name: '🤖 電腦 ' + (i+1),
-                    team: 'red', slot: i+1,
+                    id: botId, name: '🤖 電腦 ' + (i + 1),
+                    team: 'red', slot: i + 1,
                     x: 500 - (i * 30), y: 50 + (i * 50), angle: 180,
                     hp: 100, cooldown: 0, isBot: true, // 標記為 Bot
                     // AI 的思考變數
@@ -385,17 +385,17 @@ io.on('connection', (socket) => {
             console.log(`🤖 練習房啟動，生成 ${data.botCount} 個 AI`);
 
             // 🌟 核心關鍵：自動啟動練習房的物理迴圈！
-            startLoop(PR_ID); 
+            startLoop(PR_ID);
         }
 
         // 玩家加入 (預設加入藍隊)
         room.players[data.id] = {
             id: data.id, name: data.name,
             team: 'blue', slot: Object.keys(room.players).length,
-            x: 100 + (Math.random()*50), y: 300, angle: 0, // 隨機一點出生避免重疊
+            x: 100 + (Math.random() * 50), y: 300, angle: 0, // 隨機一點出生避免重疊
             hp: 100, cooldown: 0, isBot: false
         };
-        
+
         socket.playerId = data.id;
         socket.roomId = PR_ID; // 記住玩家所在的房間
 
@@ -404,9 +404,44 @@ io.on('connection', (socket) => {
         io.to(PR_ID).emit('state', buildState(room));
         console.log(`👤 ${data.name} 加入練習房`);
     });
+
+
+    // ── 學生自由對戰模式 ──────────────────────────────────────────
+    socket.on('joinStudentPvP', (data) => {
+        const room = getRoom(data.roomId);
+
+        // 🌟 巧思：如果房間還沒啟動，由第一位進來的學生負責初始化地圖與時間
+        if (!room.active) {
+            room.active = true;
+            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
+            room.timeLeft = 300; // 學生對戰設定為 5 分鐘一局 (300秒)
+            room.scores = { red: 0, blue: 0 };
+            room.bullets = [];
+
+            console.log(`⚔️ 學生對戰房 [${data.roomId}] 啟動`);
+            startLoop(data.roomId); // 自動啟動該房間的物理迴圈
+        }
+
+        // 玩家加入指定的隊伍與位置 (不產生 AI)
+        const s = getSpawn(data.team, data.slot);
+        room.players[data.id] = {
+            id: data.id, name: data.name,
+            team: data.team, slot: data.slot,
+            x: s.x, y: s.y, angle: s.a,
+            hp: 100, cooldown: 0, isBot: false
+        };
+
+        socket.playerId = data.id;
+        socket.roomId = data.roomId;
+
+        socket.join(data.roomId);
+        socket.emit('map', { walls: room.walls });
+        io.to(data.roomId).emit('state', buildState(room));
+        console.log(`👤 ${data.name} 加入學生對戰房 [${data.roomId}]`);
+    });
 });
 
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`✅ 伺服器已成功啟動，正在監聽 Port: ${PORT}`);
 });
