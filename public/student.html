@@ -674,77 +674,145 @@
         }
 
         // --- 連線系統 ---
-        // --- 連線系統 ---
+
         function connectSystem() {
-            const url = document.getElementById('serverUrl').value;
-            const mode = document.querySelector('input[name="gameMode"]:checked').value;
-            const name = document.getElementById('playerName').value || '佚名';
-
-            socket = io(url);
-            socket.on('connect', () => {
-                log("🟢 連線成功，請求加入遊戲...");
-                document.getElementById('loginPanel').style.display = 'none';
+            try {
+                const url = document.getElementById('serverUrl').value;
                 
-                // 🌟【關鍵修復 1】：儲存自己的 ID，這樣才知道畫布上哪台坦克是自己的
-                myId = socket.id; 
+                // 防呆檢查：確保有抓到模式，否則預設為老師開房
+                const modeElem = document.querySelector('input[name="gameMode"]:checked');
+                const mode = modeElem ? modeElem.value : 'class'; 
+                const name = document.getElementById('playerName').value || '佚名';
 
-                if (mode === 'class') {
-                    // 原本的老師開房模式
-                    roomId = document.getElementById('roomId').value;
-                    myTeam = document.getElementById('team').value;
-                    const slot = document.getElementById('slot').value;
-                    socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot });
-                } else {
-                    // 自由練習模式
-                    roomId = "practice_room"; // 強制設定房號為練習房
-                    myTeam = 'blue';          // 練習模式玩家永遠是藍隊
-                    const mapId = document.getElementById('practiceMap').value;
-                    const botCount = document.getElementById('botCount').value;
-                    socket.emit('joinPractice', { 
-                        id: socket.id, 
-                        name, 
-                        mapId, 
-                        botCount: parseInt(botCount) 
-                    });
-                }
+                socket = io(url);
+                
+                // 監聽連線錯誤，方便排解問題
+                socket.on('connect_error', (err) => {
+                    log("🔴 連線失敗: " + err.message + " (請確認伺服器是否有啟動)");
+                });
 
-                // 🌟【關鍵修復 2】：連線成功後，啟動 60fps 畫面渲染迴圈！
-                startRenderLoop();
-            });
-
-            // 接收地圖
-            socket.on('map', (data) => { 
-                walls = data.walls; 
-            });
-
-            // 接收 Server 算好的遊戲狀態
-            socket.on('state', (data) => {
-                players = data.players;
-                bullets = data.bullets;
-                localBullets = bullets.map(b => ({ ...b }));  // 建立插值副本
-                lastStateTime = performance.now();
-                gameScores = data.scores;
-                gameTimeLeft = data.time;
-                updateUI();
-
-                // 伺服器確認後同步本地預測（避免誤差累積）
-                if (players[myId]) {
-                    if (!localMe) localMe = { x: players[myId].x, y: players[myId].y, angle: players[myId].angle };
-                    else {
-                        // 平滑修正：取平均值避免跳動
-                        localMe.x = localMe.x * 0.5 + players[myId].x * 0.5;
-                        localMe.y = localMe.y * 0.5 + players[myId].y * 0.5;
-                        localMe.angle = players[myId].angle;
+                socket.on('connect', () => {
+                    log("🟢 連線成功，請求加入遊戲...");
+                    const loginPanel = document.getElementById('loginPanel');
+                    
+                    // 🌟 這裡負責隱藏登入面板，讓遊戲畫面露出來
+                    if(loginPanel) {
+                        // 隱藏整個 overlay 以防阻擋點擊
+                        document.getElementById('overlay').style.display = 'none'; 
                     }
-                }
+                    
+                    document.getElementById('statusText').innerText = "🟢 已連線";
+                    
+                    myId = socket.id; // 記錄自己的車牌號碼
 
-                if (data.gameOver) {
-                    stopCode();
-                    let msg = data.winner === 'draw' ? '🤝 比賽平手！'
-                        : (data.winner === myTeam ? '🎉 恭喜！你的隊伍獲勝了！🏆' : '💀 惜敗... 下次再贏回來！');
-                    setTimeout(() => alert(msg), 100);
+                    if (mode === 'class') {
+                        // 👨‍🏫 老師開房模式
+                        roomId = document.getElementById('roomId') ? document.getElementById('roomId').value : "1234";
+                        myTeam = document.getElementById('team') ? document.getElementById('team').value : "red";
+                        const slot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
+                        
+                        // 學生必須先加入 Socket 通道，才能收到老師的廣播
+                        socket.emit('joinRoom', roomId);
+                        socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot });
+                        
+                    } else {
+                        // 🤖 自由練習模式
+                        roomId = "practice_room"; 
+                        myTeam = 'blue';          
+                        const mapId = document.getElementById('practiceMap') ? document.getElementById('practiceMap').value : "map1";
+                        const botCount = document.getElementById('botCount') ? document.getElementById('botCount').value : "1";
+                        
+                        socket.emit('joinPractice', { 
+                            id: socket.id, 
+                            name, 
+                            mapId, 
+                            botCount: parseInt(botCount) 
+                        });
+                    }
+
+                    // 🌟 啟動 60fps 畫面渲染迴圈，畫面才會動！
+                    startRenderLoop();
+                });
+
+                // 接收地圖
+                socket.on('map', (data) => { 
+                    if(data && data.walls) walls = data.walls; 
+                });
+
+                // 接收 Server 算好的遊戲狀態
+                socket.on('state', (data) => {
+                    if(!data) return;
+                    players = data.players || {};
+                    bullets = data.bullets || [];
+                    localBullets = bullets.map(b => ({ ...b }));  
+                    lastStateTime = performance.now();
+                    gameScores = data.scores || {red: 0, blue: 0};
+                    gameTimeLeft = data.time || 0;
+                    
+                    updateUI(); // 更新計分板
+
+                    // 伺服器確認後同步本地預測
+                    if (players[myId]) {
+                        if (!localMe) {
+                            localMe = { x: players[myId].x, y: players[myId].y, angle: players[myId].angle };
+                        } else {
+                            localMe.x = localMe.x * 0.5 + players[myId].x * 0.5;
+                            localMe.y = localMe.y * 0.5 + players[myId].y * 0.5;
+                            localMe.angle = players[myId].angle;
+                        }
+                    }
+
+                    if (data.gameOver) {
+                        stopCode();
+                        let msg = data.winner === 'draw' ? '🤝 比賽平手！'
+                            : (data.winner === myTeam ? '🎉 恭喜！你的隊伍獲勝了！🏆' : '💀 惜敗... 下次再贏回來！');
+                        setTimeout(() => alert(msg), 100);
+                    }
+                });
+                
+            } catch (e) {
+                alert("登入介面發生錯誤：" + e.message);
+                console.error(e);
+            }
+        }
+
+        // --- 更新 UI ---
+        function updateUI() {
+            try {
+                const sr = document.getElementById('scoreRed');
+                const sb = document.getElementById('scoreBlue');
+                const td = document.getElementById('timerDisplay');
+                
+                if(sr) sr.innerText = gameScores.red;
+                if(sb) sb.innerText = gameScores.blue;
+                if(td) {
+                    let m = Math.floor(gameTimeLeft / 60);
+                    let s = Math.floor(gameTimeLeft % 60);
+                    td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
                 }
-            });
+            } catch (e) {
+                console.warn("UI 更新失敗 (但不影響遊戲)", e);
+            }
+        }
+
+        // --- 更新 UI (防崩潰增強版) ---
+        function updateUI() {
+            try {
+                // 加入 if 判斷，避免學生端的 HTML 找不到這些計分板 ID 時造成整個程式當機
+                const sr = document.getElementById('scoreRed');
+                const sb = document.getElementById('scoreBlue');
+                const td = document.getElementById('timerDisplay');
+                
+                if(sr) sr.innerText = gameScores.red;
+                if(sb) sb.innerText = gameScores.blue;
+                if(td) {
+                    let m = Math.floor(gameTimeLeft / 60);
+                    let s = Math.floor(gameTimeLeft % 60);
+                    td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
+                }
+            } catch (e) {
+                console.warn("UI 更新失敗 (但不影響遊戲)", e);
+            }
         }
 
         function sendCmd(action, val) {
