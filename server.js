@@ -30,6 +30,23 @@ const COOLDOWN_TICKS = 15;    // 開火冷卻 tick 數
 const RESPAWN_MS     = 3000;  // 重生延遲 ms
 const TICK_MS        = 50;    // 物理迴圈間隔 (20 fps 邏輯)
 
+
+// ============================================================
+//  預設地圖資料 (用於練習模式)
+// ============================================================
+const PRESET_MAPS = {
+    'map1': [
+        { x: 300, y: 200, w: 100, h: 50, type: 'wall', isDestructible: false, emoji: '🧱' },
+        { x: 150, y: 100, w: 50, h: 50, type: 'wood', hp: 50, isDestructible: true, emoji: '📦' },
+        { x: 450, y: 300, w: 50, h: 50, type: 'wood', hp: 50, isDestructible: true, emoji: '📦' }
+    ],
+    'map2': [
+        // 你可以自己設計更複雜的迷宮
+        { x: 200, y: 200, w: 20, h: 200, type: 'wall', isDestructible: false, emoji: '🧱' },
+        { x: 400, y: 200, w: 20, h: 200, type: 'wall', isDestructible: false, emoji: '🧱' }
+    ]
+};
+
 // ============================================================
 //  房間管理
 // ============================================================
@@ -52,7 +69,7 @@ function getRoom(roomId) {
 }
 
 // ============================================================
-//  物理函數
+//  物理與 AI 函數
 // ============================================================
 function checkCol(walls, x, y, r) {
     if (x < r || x > CANVAS_W - r || y < r || y > CANVAS_H - r) return true;
@@ -102,6 +119,50 @@ function applyCmd(room, data) {
     }
 }
 
+// 🌟 核心新增：AI 思考與移動邏輯
+function updateBots(room) {
+    for (let id in room.players) {
+        let p = room.players[id];
+        if (p.isBot && p.hp > 0) {
+            // 簡單 AI 邏輯：每隔一段時間隨機轉向並開火，平時一直往前走
+            p.botTimer--;
+            
+            if (p.botTimer <= 0) {
+                // 決定下一個動作 (1~3 秒換一次動作)
+                p.botTimer = 20 + Math.random() * 40; 
+                p.angle = Math.floor(Math.random() * 360); // 隨機轉向
+                
+                // 隨機開火 (30% 機率)
+                if (Math.random() > 0.3 && p.cooldown <= 0) {
+                    room.bullets.push({
+                        x: p.x, y: p.y,
+                        angle: p.angle,
+                        owner: p.id,
+                        team: p.team,
+                        distance: 0,
+                        maxRange: BULLET_RANGE
+                    });
+                    p.cooldown = COOLDOWN_TICKS;
+                }
+            }
+
+            // 讓 AI 持續往前走
+            let rad = p.angle * Math.PI / 180;
+            let nx = p.x + Math.cos(rad) * 2; // AI 走慢一點 (速度2)
+            let ny = p.y + Math.sin(rad) * 2;
+            
+            // 碰撞偵測 (使用您的 checkCol 函數)
+            if (!checkCol(room.walls, nx, ny, TANK_RADIUS)) {
+                p.x = nx;
+                p.y = ny;
+            } else {
+                // 撞牆了就提早改變方向
+                p.botTimer = 0; 
+            }
+        }
+    }
+}
+
 // ============================================================
 //  物理迴圈 (每 50ms 執行一次)
 // ============================================================
@@ -109,6 +170,11 @@ function tickRoom(roomId) {
     const room = rooms[roomId];
     if (!room) return;
     room.tickCount++;
+
+    // 🌟 讓 AI 機器人優先思考與動作
+    if (room.active) {
+        updateBots(room);
+    }
 
     // 冷卻倒數
     for (const id in room.players) {
@@ -241,8 +307,12 @@ io.on('connection', (socket) => {
         room.timeLeft = data.timeLimit || 180;
         for (const id in room.players) {
             const p = room.players[id];
-            const s = getSpawn(p.team, p.slot);
-            p.x = s.x; p.y = s.y; p.angle = s.a; p.hp = 100; p.cooldown = 0;
+            // 若為電腦則不強制重生至固定點，或依照需求修改
+            if(!p.isBot) {
+                const s = getSpawn(p.team, p.slot);
+                p.x = s.x; p.y = s.y; p.angle = s.a; 
+            }
+            p.hp = 100; p.cooldown = 0;
         }
         io.to(data.roomId).emit('state', buildState(room));
         io.to(data.roomId).emit('map',   { walls: room.walls });
@@ -259,7 +329,7 @@ io.on('connection', (socket) => {
             id: data.id, name: data.name,
             team: data.team, slot: data.slot,
             x: s.x, y: s.y, angle: s.a,
-            hp: 100, cooldown: 0
+            hp: 100, cooldown: 0, isBot: false
         };
         socket.playerId = data.id;
         io.to(data.roomId).emit('state', buildState(room));
@@ -287,6 +357,52 @@ io.on('connection', (socket) => {
             delete rooms[roomId].players[pid];
             io.to(roomId).emit('state', buildState(rooms[roomId]));
         }
+    });
+
+    // ── 自由練習模式 ──────────────────────────────────────────
+    socket.on('joinPractice', (data) => {
+        const PR_ID = "practice_room"; // 固定的練習房號
+        const room = getRoom(PR_ID);
+        
+        // 如果房間還沒啟動，初始化地圖跟 AI
+        if (!room.active) {
+            room.active = true;
+            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
+            room.timeLeft = 999; // 練習模式時間無限
+            
+            // 生成 AI 機器人 (設定為紅隊)
+            for (let i = 0; i < data.botCount; i++) {
+                let botId = 'bot_' + i + '_' + Date.now();
+                room.players[botId] = {
+                    id: botId, name: '🤖 電腦 ' + (i+1),
+                    team: 'red', slot: i+1,
+                    x: 500 - (i * 30), y: 50 + (i * 50), angle: 180,
+                    hp: 100, cooldown: 0, isBot: true, // 標記為 Bot
+                    // AI 的思考變數
+                    botState: 'moving', botTimer: 0
+                };
+            }
+            console.log(`🤖 練習房啟動，生成 ${data.botCount} 個 AI`);
+
+            // 🌟 核心關鍵：自動啟動練習房的物理迴圈！
+            startLoop(PR_ID); 
+        }
+
+        // 玩家加入 (預設加入藍隊)
+        room.players[data.id] = {
+            id: data.id, name: data.name,
+            team: 'blue', slot: Object.keys(room.players).length,
+            x: 100 + (Math.random()*50), y: 300, angle: 0, // 隨機一點出生避免重疊
+            hp: 100, cooldown: 0, isBot: false
+        };
+        
+        socket.playerId = data.id;
+        socket.roomId = PR_ID; // 記住玩家所在的房間
+
+        socket.join(PR_ID);
+        socket.emit('map', { walls: room.walls });
+        io.to(PR_ID).emit('state', buildState(room));
+        console.log(`👤 ${data.name} 加入練習房`);
     });
 });
 
