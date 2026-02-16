@@ -198,25 +198,69 @@
 
 <body>
     <div id="overlay">
-        <div class="panel">
-            <h2>🛡️ 學員登入系統</h2>
-            <label>房間號碼</label>
-            <input type="text" id="roomId" value="101">
-            <label>選擇隊伍</label>
-            <select id="teamSelect">
-                <option value="red">🔴 紅隊 (攻方 - 左側)</option>
-                <option value="blue">🔵 藍隊 (守方 - 右側)</option>
-            </select>
-            <label>戰術代號與位置</label>
-            <select id="playerSlotSelect">
-                <option value="0">Alpha (上路位置)</option>
-                <option value="1">Bravo (中路位置)</option>
-                <option value="2">Charlie (下路位置)</option>
-            </select>
-            <label>Socket 伺服器</label>
-            <input type="text" id="mqttUrl" value="https://tank-game-server-2iwf.onrender.com" placeholder="https://tank-game-server-2iwf.onrender.com">
-            <button onclick="connectSystem()">🚀 進入戰場</button>
+        <div class="panel" id="loginPanel"
+            style="position: absolute; top: 20%; left: 50%; transform: translateX(-50%); z-index: 1000; width: 350px;">
+            <h2 style="text-align: center; margin-top: 0;">🎮 進入前線基地</h2>
+
+            <div style="margin-bottom: 15px; text-align: center;">
+                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫
+                    老師開房</label>
+                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="practice"
+                        onchange="toggleMode()"> 🤖 自由練習</label>
+            </div>
+
+            <label>對戰伺服器</label>
+            <input type="text" id="serverUrl" value="https://tank-game-server-2iwf.onrender.com">
+            <label>指揮官名稱</label>
+            <input type="text" id="playerName" placeholder="輸入你的名字" value="學生A">
+
+            <div id="classOptions">
+                <label>房間代碼</label>
+                <input type="text" id="roomId" value="1234">
+                <label>選擇隊伍</label>
+                <select id="team">
+                    <option value="red">🔴 紅頭盔部隊</option>
+                    <option value="blue">🔵 藍裝甲部隊</option>
+                </select>
+                <label>出生點</label>
+                <select id="slot">
+                    <option value="1">位置 1</option>
+                    <option value="2">位置 2</option>
+                    <option value="3">位置 3</option>
+                </select>
+            </div>
+
+            <div id="practiceOptions" style="display: none;">
+                <label>選擇地圖</label>
+                <select id="practiceMap">
+                    <option value="map1">🌲 森林大亂鬥 (預設)</option>
+                    <option value="map2">🧱 迷宮訓練場</option>
+                </select>
+                <label>敵方 AI 數量</label>
+                <select id="botCount">
+                    <option value="1">1 隻 (新手)</option>
+                    <option value="3">3 隻 (挑戰)</option>
+                    <option value="5">5 隻 (地獄)</option>
+                </select>
+            </div>
+
+            <button onclick="connectSystem()" style="width: 100%; margin-top: 15px; background: #4CAF50;">🚀
+                啟動連線</button>
         </div>
+
+        <script>
+            // 控制登入介面顯示切換
+            function toggleMode() {
+                const mode = document.querySelector('input[name="gameMode"]:checked').value;
+                if (mode === 'class') {
+                    document.getElementById('classOptions').style.display = 'block';
+                    document.getElementById('practiceOptions').style.display = 'none';
+                } else {
+                    document.getElementById('classOptions').style.display = 'none';
+                    document.getElementById('practiceOptions').style.display = 'block';
+                }
+            }
+        </script>
     </div>
 
     <header>
@@ -557,9 +601,9 @@
 
         // --- 本地預測 ---
         const BULLET_SPEED = 8;
-        let lastStateTime  = 0;
-        let localBullets   = [];
-        let localMe        = null;   // 自己坦克的預測位置
+        let lastStateTime = 0;
+        let localBullets = [];
+        let localMe = null;   // 自己坦克的預測位置
 
         // --- 60fps 獨立渲染迴圈 ---
         let renderLoopStarted = false;
@@ -591,13 +635,13 @@
             // 子彈插值補算
             localBullets.forEach(b => {
                 const rad = Number(b.angle) * Math.PI / 180;
-                const px  = Number(b.x) + Math.cos(rad) * BULLET_SPEED * elapsed * 20;
-                const py  = Number(b.y) + Math.sin(rad) * BULLET_SPEED * elapsed * 20;
-                ctx.fillStyle   = b.team === 'red' ? '#ff6b6b' : '#74b9ff';
+                const px = Number(b.x) + Math.cos(rad) * BULLET_SPEED * elapsed * 20;
+                const py = Number(b.y) + Math.sin(rad) * BULLET_SPEED * elapsed * 20;
+                ctx.fillStyle = b.team === 'red' ? '#ff6b6b' : '#74b9ff';
                 ctx.shadowColor = b.team === 'red' ? '#ff0000' : '#0000ff';
-                ctx.shadowBlur  = 6;
+                ctx.shadowBlur = 6;
                 ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur  = 0;
+                ctx.shadowBlur = 0;
             });
 
             // 坦克
@@ -615,7 +659,7 @@
                     ctx.fillStyle = '#FFD700'; ctx.font = 'bold 12px Arial';
                     ctx.textAlign = 'center'; ctx.fillText('▼ YOU', 0, -45);
                 }
-                ctx.fillStyle = 'red';  ctx.fillRect(-15, -25, 30, 4);
+                ctx.fillStyle = 'red'; ctx.fillRect(-15, -25, 30, 4);
                 ctx.fillStyle = '#0f0'; ctx.fillRect(-15, -25, 30 * (php / 100), 4);
                 ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
                 ctx.textAlign = 'center'; ctx.fillText(p.name, 0, -30);
@@ -631,47 +675,45 @@
 
         // --- 連線系統 ---
         function connectSystem() {
-            roomId = document.getElementById('roomId').value;
-            myTeam = document.getElementById('teamSelect').value;
-            const slotSelect = document.getElementById('playerSlotSelect');
-            mySlot = parseInt(slotSelect.value);
-            const myName = slotSelect.options[slotSelect.selectedIndex].text.split(' ')[0];
-            myId = "p_" + Math.random().toString(36).substr(2, 6);
+    const url = document.getElementById('serverUrl').value;
+    const mode = document.querySelector('input[name="gameMode"]:checked').value;
+    const name = document.getElementById('playerName').value || '佚名';
 
-            // 取得伺服器網址
-            const serverUrl = document.getElementById('mqttUrl').value;
-            if (!serverUrl) { alert("請輸入伺服器網址！"); return; }
-
-            // 建立連線
-            socket = io(serverUrl);
-
-            socket.on('connect', () => {
-                document.getElementById('overlay').style.display = 'none';
-                const statusSpan = document.getElementById('statusText');
-                statusSpan.innerHTML = `<strong style="color:${myTeam === 'red' ? '#ff5252' : '#448aff'}">${myTeam === 'red' ? '🔴' : '🔵'} ${myName}</strong>`;
-
-                // 加入房間
-                socket.emit('joinRoom', roomId);
-                socket.emit('playerJoin', { roomId, id: myId, name: myName, team: myTeam, slot: mySlot });
-                log('✅ 連線成功 (Server 端物理版)');
-                startRenderLoop();   // 🌟 啟動 60fps 渲染迴圈
+    socket = io(url);
+    socket.on('connect', () => {
+        log("🟢 連線成功，請求加入遊戲...");
+        document.getElementById('loginPanel').style.display = 'none';
+        
+        if (mode === 'class') {
+            // 原本的老師開房模式
+            const roomId = document.getElementById('roomId').value;
+            const team = document.getElementById('team').value;
+            const slot = document.getElementById('slot').value;
+            socket.emit('playerJoin', { id: socket.id, name, roomId, team, slot });
+        } else {
+            // 自由練習模式
+            const mapId = document.getElementById('practiceMap').value;
+            const botCount = document.getElementById('botCount').value;
+            // 練習模式統一加入名為 "practice_room" 的房間，隊伍強制為藍隊(玩家)打紅隊(AI)
+            socket.emit('joinPractice', { 
+                id: socket.id, 
+                name, 
+                mapId, 
+                botCount: parseInt(botCount) 
             });
-
-            socket.on('connect_error', (err) => {
-                alert('連線失敗！請確認 Server 已啟動且網址正確。');
-                console.error(err);
-            });
+        }
+    });
 
             // 接收地圖
             socket.on('map', (data) => { walls = data.walls; });
 
             // 接收 Server 算好的遊戲狀態
             socket.on('state', (data) => {
-                players      = data.players;
-                bullets      = data.bullets;
+                players = data.players;
+                bullets = data.bullets;
                 localBullets = bullets.map(b => ({ ...b }));  // 建立插值副本
                 lastStateTime = performance.now();
-                gameScores   = data.scores;
+                gameScores = data.scores;
                 gameTimeLeft = data.time;
                 updateUI();
 
@@ -680,8 +722,8 @@
                     if (!localMe) localMe = { x: players[myId].x, y: players[myId].y, angle: players[myId].angle };
                     else {
                         // 平滑修正：取平均值避免跳動
-                        localMe.x     = localMe.x     * 0.5 + players[myId].x     * 0.5;
-                        localMe.y     = localMe.y     * 0.5 + players[myId].y     * 0.5;
+                        localMe.x = localMe.x * 0.5 + players[myId].x * 0.5;
+                        localMe.y = localMe.y * 0.5 + players[myId].y * 0.5;
                         localMe.angle = players[myId].angle;
                     }
                 }
@@ -702,15 +744,15 @@
             if (localMe) {
                 if (action === 'move') {
                     const rad = localMe.angle * Math.PI / 180;
-                    const nx  = localMe.x + Math.cos(rad) * val;
-                    const ny  = localMe.y + Math.sin(rad) * val;
+                    const nx = localMe.x + Math.cos(rad) * val;
+                    const ny = localMe.y + Math.sin(rad) * val;
                     if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
                         localMe.x = nx; localMe.y = ny;
                     }
                 } else if (action === 'move_back') {
                     const rad = localMe.angle * Math.PI / 180;
-                    const nx  = localMe.x - Math.cos(rad) * val;
-                    const ny  = localMe.y - Math.sin(rad) * val;
+                    const nx = localMe.x - Math.cos(rad) * val;
+                    const ny = localMe.y - Math.sin(rad) * val;
                     if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
                         localMe.x = nx; localMe.y = ny;
                     }
@@ -739,33 +781,33 @@
         };
 
         function defineBlocks() {
-        
- Blockly.Blocks['tank_move'] = { 
-    init: function () { 
-        this.jsonInit({ 
-            "message0": "🚀 坦克前進", 
-            "previousStatement": null, 
-            "nextStatement": null, 
-            "colour": 210 
-        }); 
-    } 
-};
-// 🎯 修正：對戰版必須使用 apiCmd('move', 20)
-Blockly.JavaScript.forBlock['tank_move'] = () => `apiCmd('move', 20);\n`;
 
-// 🔙 坦克後退 (固定 20 步)
-Blockly.Blocks['tank_move_back'] = { 
-    init: function () { 
-        this.jsonInit({ 
-            "message0": "🔙 坦克後退", 
-            "previousStatement": null, 
-            "nextStatement": null, 
-            "colour": 210 
-        }); 
-    } 
-};
-// 🎯 修正：對戰版使用 apiCmd('move_back', 20)
-Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\n`;
+            Blockly.Blocks['tank_move'] = {
+                init: function () {
+                    this.jsonInit({
+                        "message0": "🚀 坦克前進",
+                        "previousStatement": null,
+                        "nextStatement": null,
+                        "colour": 210
+                    });
+                }
+            };
+            // 🎯 修正：對戰版必須使用 apiCmd('move', 20)
+            Blockly.JavaScript.forBlock['tank_move'] = () => `apiCmd('move', 20);\n`;
+
+            // 🔙 坦克後退 (固定 20 步)
+            Blockly.Blocks['tank_move_back'] = {
+                init: function () {
+                    this.jsonInit({
+                        "message0": "🔙 坦克後退",
+                        "previousStatement": null,
+                        "nextStatement": null,
+                        "colour": 210
+                    });
+                }
+            };
+            // 🎯 修正：對戰版使用 apiCmd('move_back', 20)
+            Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\n`;
             // 🔄 轉向
             Blockly.Blocks['tank_turn'] = { init: function () { this.jsonInit({ "message0": "🔄 右轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
             Blockly.JavaScript.forBlock['tank_turn'] = b => `apiCmd('turn', ${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
@@ -979,10 +1021,11 @@ Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\
             r.readAsText(f); i.value = '';
         }
     </script>
-<footer>
-    Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chieh<br>
-    本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
-    © 2026 張世杰 (<a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>)
-</footer>
+    <footer>
+        Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chieh<br>
+        本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
+        © 2026 張世杰 (<a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>)
+    </footer>
 </body>
+
 </html>
