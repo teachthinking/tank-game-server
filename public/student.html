@@ -203,10 +203,9 @@
             <h2 style="text-align: center; margin-top: 0;">🎮 進入前線基地</h2>
 
             <div style="margin-bottom: 15px; text-align: center;">
-                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫
-                    老師開房</label>
-                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="practice"
-                        onchange="toggleMode()"> 🤖 自由練習</label>
+                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫 老師開房</label>
+                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 打電腦</label>
+                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="pvp" onchange="toggleMode()"> ⚔️ 學生對戰</label>
             </div>
 
             <label>對戰伺服器</label>
@@ -215,7 +214,7 @@
             <input type="text" id="playerName" placeholder="輸入你的名字" value="學生A">
 
             <div id="classOptions">
-                <label>房間代碼</label>
+                <label>老師的房間代碼</label>
                 <input type="text" id="roomId" value="1234">
                 <label>選擇隊伍</label>
                 <select id="team">
@@ -233,7 +232,7 @@
             <div id="practiceOptions" style="display: none;">
                 <label>選擇地圖</label>
                 <select id="practiceMap">
-                    <option value="map1">🌲 森林大亂鬥 (預設)</option>
+                    <option value="map1">🌲 森林大亂鬥</option>
                     <option value="map2">🧱 迷宮訓練場</option>
                 </select>
                 <label>敵方 AI 數量</label>
@@ -244,6 +243,27 @@
                 </select>
             </div>
 
+            <div id="pvpOptions" style="display: none;">
+                <label>對戰房號 (與好友約定相同的數字)</label>
+                <input type="text" id="pvpRoomId" value="999">
+                <label>選擇隊伍</label>
+                <select id="pvpTeam">
+                    <option value="red">🔴 紅頭盔部隊</option>
+                    <option value="blue">🔵 藍裝甲部隊</option>
+                </select>
+                <label>出生點</label>
+                <select id="pvpSlot">
+                    <option value="1">位置 1</option>
+                    <option value="2">位置 2</option>
+                    <option value="3">位置 3</option>
+                </select>
+                <label>選擇地圖 (僅第一位進房者有效)</label>
+                <select id="pvpMap">
+                    <option value="map1">🌲 森林大亂鬥</option>
+                    <option value="map2">🧱 迷宮訓練場</option>
+                </select>
+            </div>
+
             <button onclick="connectSystem()" style="width: 100%; margin-top: 15px; background: #4CAF50;">🚀
                 啟動連線</button>
         </div>
@@ -251,15 +271,11 @@
         <script>
             // 控制登入介面顯示切換
             function toggleMode() {
-                const mode = document.querySelector('input[name="gameMode"]:checked').value;
-                if (mode === 'class') {
-                    document.getElementById('classOptions').style.display = 'block';
-                    document.getElementById('practiceOptions').style.display = 'none';
-                } else {
-                    document.getElementById('classOptions').style.display = 'none';
-                    document.getElementById('practiceOptions').style.display = 'block';
-                }
-            }
+            const mode = document.querySelector('input[name="gameMode"]:checked').value;
+            document.getElementById('classOptions').style.display = mode === 'class' ? 'block' : 'none';
+            document.getElementById('practiceOptions').style.display = mode === 'practice' ? 'block' : 'none';
+            document.getElementById('pvpOptions').style.display = mode === 'pvp' ? 'block' : 'none'; // 顯示對戰選項
+        }
         </script>
     </div>
 
@@ -678,59 +694,46 @@
         function connectSystem() {
             try {
                 const url = document.getElementById('serverUrl').value;
-                
-                // 防呆檢查：確保有抓到模式，否則預設為老師開房
                 const modeElem = document.querySelector('input[name="gameMode"]:checked');
                 const mode = modeElem ? modeElem.value : 'class'; 
                 const name = document.getElementById('playerName').value || '佚名';
 
                 socket = io(url);
-                
-                // 監聽連線錯誤，方便排解問題
-                socket.on('connect_error', (err) => {
-                    log("🔴 連線失敗: " + err.message + " (請確認伺服器是否有啟動)");
-                });
+                socket.on('connect_error', (err) => { log("🔴 連線失敗: " + err.message); });
 
                 socket.on('connect', () => {
                     log("🟢 連線成功，請求加入遊戲...");
                     const loginPanel = document.getElementById('loginPanel');
-                    
-                    // 🌟 這裡負責隱藏登入面板，讓遊戲畫面露出來
-                    if(loginPanel) {
-                        // 隱藏整個 overlay 以防阻擋點擊
-                        document.getElementById('overlay').style.display = 'none'; 
-                    }
-                    
+                    if(loginPanel) document.getElementById('overlay').style.display = 'none'; 
                     document.getElementById('statusText').innerText = "🟢 已連線";
-                    
-                    myId = socket.id; // 記錄自己的車牌號碼
+                    myId = socket.id; 
 
                     if (mode === 'class') {
                         // 👨‍🏫 老師開房模式
                         roomId = document.getElementById('roomId') ? document.getElementById('roomId').value : "1234";
                         myTeam = document.getElementById('team') ? document.getElementById('team').value : "red";
                         const slot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
-                        
-                        // 學生必須先加入 Socket 通道，才能收到老師的廣播
                         socket.emit('joinRoom', roomId);
                         socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot });
                         
-                    } else {
+                    } else if (mode === 'practice') {
                         // 🤖 自由練習模式
                         roomId = "practice_room"; 
                         myTeam = 'blue';          
                         const mapId = document.getElementById('practiceMap') ? document.getElementById('practiceMap').value : "map1";
                         const botCount = document.getElementById('botCount') ? document.getElementById('botCount').value : "1";
+                        socket.emit('joinPractice', { id: socket.id, name, mapId, botCount: parseInt(botCount) });
                         
-                        socket.emit('joinPractice', { 
-                            id: socket.id, 
-                            name, 
-                            mapId, 
-                            botCount: parseInt(botCount) 
-                        });
+                    } else if (mode === 'pvp') {
+                        // ⚔️ 學生自由對戰模式 (🌟 新增這塊)
+                        roomId = document.getElementById('pvpRoomId') ? document.getElementById('pvpRoomId').value : "999";
+                        myTeam = document.getElementById('pvpTeam') ? document.getElementById('pvpTeam').value : "red";
+                        const slot = document.getElementById('pvpSlot') ? document.getElementById('pvpSlot').value : "1";
+                        const mapId = document.getElementById('pvpMap') ? document.getElementById('pvpMap').value : "map1";
+                        
+                        socket.emit('joinStudentPvP', { id: socket.id, name, roomId, team: myTeam, slot, mapId });
                     }
 
-                    // 🌟 啟動 60fps 畫面渲染迴圈，畫面才會動！
                     startRenderLoop();
                 });
 
