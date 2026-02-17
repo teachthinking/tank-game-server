@@ -116,7 +116,7 @@
         #gameCanvas {
             background: #1a1a1a;
             width: 600px;
-            height: 400px;
+            height: 600px;
         }
 
         #console {
@@ -198,84 +198,181 @@
 
 <body>
     <div id="overlay">
-        <div class="panel" id="loginPanel"
-            style="position: absolute; top: 20%; left: 50%; transform: translateX(-50%); z-index: 1000; width: 350px;">
-            <h2 style="text-align: center; margin-top: 0;">🎮 進入前線基地</h2>
+        <style>
+            #loginPanel {
+                background: rgba(40, 40, 40, 0.95);
+                padding: 15px 20px;
+                border: 2px solid #666;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+                color: #eee;
+            }
 
-            <div style="margin-bottom: 15px; text-align: center;">
-                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫 老師開房</label>
-                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 打電腦</label>
-                <label style="margin-left: 10px;"><input type="radio" name="gameMode" value="pvp" onchange="toggleMode()"> ⚔️ 學生對戰</label>
+            .form-row {
+                display: flex;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+
+            .form-row label {
+                flex: 0 0 75px;
+                /* 固定標籤寬度 */
+                text-align: right;
+                margin-right: 10px;
+                font-size: 0.9rem;
+            }
+
+            .form-row input[type="text"],
+            .form-row select {
+                flex: 1;
+                padding: 4px 6px;
+                border-radius: 4px;
+                border: 1px solid #555;
+                background: #222;
+                color: #fff;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .form-group-half {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+
+            .form-group-half .half {
+                flex: 1;
+                display: flex;
+                align-items: center;
+            }
+
+            .form-group-half .half label {
+                margin-right: 5px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            .mode-selector {
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                font-size: 0.9rem;
+                background: #333;
+                padding: 6px;
+                border-radius: 5px;
+            }
+        </style>
+
+        <div class="panel" id="loginPanel"
+            style="position: absolute; top: 15%; left: 50%; transform: translateX(-50%); z-index: 1000; width: 380px;">
+            <h2 style="text-align: center; margin: 0 0 12px 0; font-size: 1.3rem;">🎮 進入前線基地</h2>
+
+            <div class="mode-selector">
+                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫
+                    老師開戰場</label>
+                <label><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 單人/合作打王</label>
+                <label><input type="radio" name="gameMode" value="pvp" onchange="toggleMode()"> ⚔️ 學生對戰</label>
             </div>
 
-            <label>對戰伺服器</label>
-            <input type="text" id="serverUrl" value="https://tank-game-server-2iwf.onrender.com">
-            <label>指揮官名稱</label>
-            <input type="text" id="playerName" placeholder="輸入你的名字" value="學生A">
+            <div class="form-row">
+                <label>伺服器</label>
+                <input type="text" id="serverUrl" value="https://tank-game-server-2iwf.onrender.com">
+            </div>
+            <div class="form-row" style="margin-bottom: 15px;">
+                <label>指揮官</label>
+                <input type="text" id="playerName" placeholder="輸入你的名字" value="學生A">
+            </div>
 
             <div id="classOptions">
-                <label>老師的房間代碼</label>
-                <input type="text" id="roomId" value="1234">
-                <label>選擇隊伍</label>
-                <select id="team">
-                    <option value="red">🔴 紅頭盔部隊</option>
-                    <option value="blue">🔵 藍裝甲部隊</option>
-                </select>
-                <label>出生點</label>
-                <select id="slot">
-                    <option value="1">位置 1</option>
-                    <option value="2">位置 2</option>
-                    <option value="3">位置 3</option>
-                </select>
+                <div class="form-row">
+                    <label>房間代碼</label>
+                    <input type="text" id="roomId" value="1234">
+                </div>
+                <div class="form-group-half">
+                    <div class="half">
+                        <label>隊伍</label>
+                        <select id="team">
+                            <option value="red">🔴 紅</option>
+                            <option value="blue">🔵 藍</option>
+                        </select>
+                    </div>
+                    <div class="half">
+                        <label>出生點</label>
+                        <select id="slot">
+                            <option value="1">位置 1</option>
+                            <option value="2">位置 2</option>
+                            <option value="3">位置 3</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div id="practiceOptions" style="display: none;">
-                <label>選擇地圖</label>
-                <select id="practiceMap">
-                    <option value="map1">🌲 森林大亂鬥</option>
-                    <option value="map2">🧱 迷宮訓練場</option>
-                </select>
-                <label>敵方 AI 數量</label>
-                <select id="botCount">
-                    <option value="1">1 隻 (新手)</option>
-                    <option value="3">3 隻 (挑戰)</option>
-                    <option value="5">5 隻 (地獄)</option>
-                </select>
+                <div class="form-row">
+                    <label>合作房號</label>
+                    <input type="text" id="practiceRoomId" value="coop_1" placeholder="與同學輸入相同房號即可組隊">
+                </div>
+                <div class="form-row">
+                    <label>選擇地圖</label>
+                    <select id="practiceMap">
+                        <option value="map1">🌲 森林大亂鬥</option>
+                        <option value="map2">🧱 迷宮訓練場</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>AI 數量 (僅隊長設定有效)</label>
+                    <select id="botCount">
+                        <option value="1">1 隻 (新手)</option>
+                        <option value="3">3 隻 (挑戰)</option>
+                        <option value="5">5 隻 (地獄)</option>
+                        <option value="10">10 隻 (夢魘)</option>
+                    </select>
+                </div>
             </div>
 
             <div id="pvpOptions" style="display: none;">
-                <label>對戰房號 (與好友約定相同的數字)</label>
-                <input type="text" id="pvpRoomId" value="999">
-                <label>選擇隊伍</label>
-                <select id="pvpTeam">
-                    <option value="red">🔴 紅頭盔部隊</option>
-                    <option value="blue">🔵 藍裝甲部隊</option>
-                </select>
-                <label>出生點</label>
-                <select id="pvpSlot">
-                    <option value="1">位置 1</option>
-                    <option value="2">位置 2</option>
-                    <option value="3">位置 3</option>
-                </select>
-                <label>選擇地圖 (僅第一位進房者有效)</label>
-                <select id="pvpMap">
-                    <option value="map1">🌲 森林大亂鬥</option>
-                    <option value="map2">🧱 迷宮訓練場</option>
-                </select>
+                <div class="form-row">
+                    <label>對戰房號</label>
+                    <input type="text" id="pvpRoomId" value="999" placeholder="與對手輸入相同數字">
+                </div>
+                <div class="form-row">
+                    <label>地圖</label>
+                    <select id="pvpMap">
+                        <option value="map1">🌲 森林大亂鬥</option>
+                        <option value="map2">🧱 迷宮訓練場</option>
+                    </select>
+                </div>
+                <div class="form-group-half">
+                    <div class="half">
+                        <label>隊伍</label>
+                        <select id="pvpTeam">
+                            <option value="red">🔴 紅隊</option>
+                            <option value="blue">🔵 藍隊</option>
+                        </select>
+                    </div>
+                    <div class="half">
+                        <label>出生點</label>
+                        <select id="pvpSlot">
+                            <option value="1">位置 1</option>
+                            <option value="2">位置 2</option>
+                            <option value="3">位置 3</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            <button onclick="connectSystem()" style="width: 100%; margin-top: 15px; background: #4CAF50;">🚀
+            <button onclick="connectSystem()"
+                style="width: 100%; margin-top: 10px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">🚀
                 啟動連線</button>
         </div>
-
         <script>
-            // 控制登入介面顯示切換
             function toggleMode() {
-            const mode = document.querySelector('input[name="gameMode"]:checked').value;
-            document.getElementById('classOptions').style.display = mode === 'class' ? 'block' : 'none';
-            document.getElementById('practiceOptions').style.display = mode === 'practice' ? 'block' : 'none';
-            document.getElementById('pvpOptions').style.display = mode === 'pvp' ? 'block' : 'none'; // 顯示對戰選項
-        }
+                const mode = document.querySelector('input[name="gameMode"]:checked').value;
+                document.getElementById('classOptions').style.display = mode === 'class' ? 'block' : 'none';
+                document.getElementById('practiceOptions').style.display = mode === 'practice' ? 'block' : 'none';
+                document.getElementById('pvpOptions').style.display = mode === 'pvp' ? 'block' : 'none';
+            }
         </script>
     </div>
 
@@ -300,7 +397,7 @@
     <div id="main-area">
         <div id="blocklyDiv"></div>
         <div id="game-wrapper">
-            <canvas id="gameCanvas" width="600" height="400"></canvas>
+            <canvas id="gameCanvas" width="600" height="600"></canvas>
             <div id="console"></div>
         </div>
     </div>
@@ -599,7 +696,7 @@
 
     <script>
         // --- 全域變數設定 ---
-        const CANVAS_W = 600; const CANVAS_H = 400;
+        const CANVAS_W = 600; const CANVAS_H = 600;
         const ctx = document.getElementById('gameCanvas').getContext('2d');
 
         let workspace = null;
@@ -695,7 +792,10 @@
             try {
                 const url = document.getElementById('serverUrl').value;
                 const modeElem = document.querySelector('input[name="gameMode"]:checked');
-                const mode = modeElem ? modeElem.value : 'class'; 
+
+                // 🌟 修改這裡：直接更新全域變數 mode，不要用 const
+                mode = modeElem ? modeElem.value : 'class';
+
                 const name = document.getElementById('playerName').value || '佚名';
 
                 socket = io(url);
@@ -703,55 +803,67 @@
 
                 socket.on('connect', () => {
                     log("🟢 連線成功，請求加入遊戲...");
+                    log("目前的遊戲模式是：" + mode);
                     const loginPanel = document.getElementById('loginPanel');
-                    if(loginPanel) document.getElementById('overlay').style.display = 'none'; 
+                    if (loginPanel) document.getElementById('overlay').style.display = 'none';
                     document.getElementById('statusText').innerText = "🟢 已連線";
-                    myId = socket.id; 
+
+                    // 確立全域變數自己的 ID
+                    myId = socket.id;
 
                     if (mode === 'class') {
                         // 👨‍🏫 老師開房模式
                         roomId = document.getElementById('roomId') ? document.getElementById('roomId').value : "1234";
                         myTeam = document.getElementById('team') ? document.getElementById('team').value : "red";
-                        const slot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
+                        mySlot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
+
                         socket.emit('joinRoom', roomId);
-                        socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot });
-                        
+                        socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot: mySlot });
+
                     } else if (mode === 'practice') {
-                        // 🤖 自由練習模式
-                        roomId = "practice_room"; 
-                        myTeam = 'blue';          
+                        // 1. 抓取學生介面上輸入的「合作房號」(如果沒輸入，預設為 coop_1)
+                        roomId = document.getElementById('practiceRoomId') ? document.getElementById('practiceRoomId').value : "coop_1";
+                        myTeam = 'blue';
                         const mapId = document.getElementById('practiceMap') ? document.getElementById('practiceMap').value : "map1";
                         const botCount = document.getElementById('botCount') ? document.getElementById('botCount').value : "1";
-                        socket.emit('joinPractice', { id: socket.id, name, mapId, botCount: parseInt(botCount) });
-                        
+
+                        // 2. 🌟 關鍵修正：呼叫 joinCoop 而不是 joinPractice！
+                        // 並且把 roomId 傳給伺服器，讓輸入同房號的學生能相遇！
+                        socket.emit('joinCoop', {
+                            id: socket.id,
+                            name: name,
+                            roomId: roomId,
+                            mapId: mapId,
+                            botCount: parseInt(botCount)
+                        });
                     } else if (mode === 'pvp') {
-                        // ⚔️ 學生自由對戰模式 (🌟 新增這塊)
+                        // ⚔️ 學生自由對戰模式
                         roomId = document.getElementById('pvpRoomId') ? document.getElementById('pvpRoomId').value : "999";
                         myTeam = document.getElementById('pvpTeam') ? document.getElementById('pvpTeam').value : "red";
-                        const slot = document.getElementById('pvpSlot') ? document.getElementById('pvpSlot').value : "1";
+                        mySlot = document.getElementById('pvpSlot') ? document.getElementById('pvpSlot').value : "1";
                         const mapId = document.getElementById('pvpMap') ? document.getElementById('pvpMap').value : "map1";
-                        
-                        socket.emit('joinStudentPvP', { id: socket.id, name, roomId, team: myTeam, slot, mapId });
+
+                        socket.emit('joinStudentPvP', { id: socket.id, name, roomId, team: myTeam, slot: mySlot, mapId });
                     }
 
                     startRenderLoop();
                 });
 
                 // 接收地圖
-                socket.on('map', (data) => { 
-                    if(data && data.walls) walls = data.walls; 
+                socket.on('map', (data) => {
+                    if (data && data.walls) walls = data.walls;
                 });
 
                 // 接收 Server 算好的遊戲狀態
                 socket.on('state', (data) => {
-                    if(!data) return;
+                    if (!data) return;
                     players = data.players || {};
                     bullets = data.bullets || [];
-                    localBullets = bullets.map(b => ({ ...b }));  
+                    localBullets = bullets.map(b => ({ ...b }));
                     lastStateTime = performance.now();
-                    gameScores = data.scores || {red: 0, blue: 0};
+                    gameScores = data.scores || { red: 0, blue: 0 };
                     gameTimeLeft = data.time || 0;
-                    
+
                     updateUI(); // 更新計分板
 
                     // 伺服器確認後同步本地預測
@@ -772,7 +884,7 @@
                         setTimeout(() => alert(msg), 100);
                     }
                 });
-                
+
             } catch (e) {
                 alert("登入介面發生錯誤：" + e.message);
                 console.error(e);
@@ -780,21 +892,22 @@
         }
 
         // --- 更新 UI ---
+        // --- 更新 UI (防崩潰增強整合版) ---
         function updateUI() {
             try {
                 const sr = document.getElementById('scoreRed');
                 const sb = document.getElementById('scoreBlue');
                 const td = document.getElementById('timerDisplay');
-                
-                if(sr) sr.innerText = gameScores.red;
-                if(sb) sb.innerText = gameScores.blue;
-                if(td) {
+
+                if (sr) sr.innerText = gameScores.red;
+                if (sb) sb.innerText = gameScores.blue;
+                if (td) {
                     let m = Math.floor(gameTimeLeft / 60);
                     let s = Math.floor(gameTimeLeft % 60);
                     td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
                 }
             } catch (e) {
-                console.warn("UI 更新失敗 (但不影響遊戲)", e);
+                console.warn("UI 更新失敗 (但不影響遊戲執行):", e);
             }
         }
 
@@ -805,10 +918,10 @@
                 const sr = document.getElementById('scoreRed');
                 const sb = document.getElementById('scoreBlue');
                 const td = document.getElementById('timerDisplay');
-                
-                if(sr) sr.innerText = gameScores.red;
-                if(sb) sb.innerText = gameScores.blue;
-                if(td) {
+
+                if (sr) sr.innerText = gameScores.red;
+                if (sb) sb.innerText = gameScores.blue;
+                if (td) {
                     let m = Math.floor(gameTimeLeft / 60);
                     let s = Math.floor(gameTimeLeft % 60);
                     td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
@@ -821,28 +934,6 @@
         function sendCmd(action, val) {
             if (!socket) return;
 
-            // 🌟 本地預測：指令發出同時立即更新本地位置
-            if (localMe) {
-                if (action === 'move') {
-                    const rad = localMe.angle * Math.PI / 180;
-                    const nx = localMe.x + Math.cos(rad) * val;
-                    const ny = localMe.y + Math.sin(rad) * val;
-                    if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
-                        localMe.x = nx; localMe.y = ny;
-                    }
-                } else if (action === 'move_back') {
-                    const rad = localMe.angle * Math.PI / 180;
-                    const nx = localMe.x - Math.cos(rad) * val;
-                    const ny = localMe.y - Math.sin(rad) * val;
-                    if (nx > 10 && nx < CANVAS_W - 10 && ny > 10 && ny < CANVAS_H - 10) {
-                        localMe.x = nx; localMe.y = ny;
-                    }
-                } else if (action === 'turn') {
-                    localMe.angle += val;
-                }
-            }
-
-            // cmd 直接送到 Server，Server 計算後廣播給所有人
             socket.emit('cmd', { roomId, id: myId, action, val });
         }
 
@@ -1007,7 +1098,7 @@
                 }
 
                 if (type === 'tank_scan_wall') {
-                    const maxDist = 400;
+                    const maxDist = 600;
                     let rad = me.angle * Math.PI / 180;
                     let dx = Math.cos(rad), dy = Math.sin(rad);
                     for (let d = 0; d < maxDist; d += 10) {
