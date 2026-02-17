@@ -194,6 +194,24 @@ function updateBots(room) {
                     }
                 }
             }
+            if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
+                // 設定移動速度 (這裡設為每幀移動 2 像素)
+                let speed = 2; 
+                
+                // 計算這一步要走多遠 (如果是最後一步，不要走過頭)
+                let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
+                
+                // 利用三角函數 (角度轉弧度)，算出 X 和 Y 分別要移動多少
+                let rad = bot.angle * (Math.PI / 180);
+                bot.x += Math.cos(rad) * step;
+                bot.y += Math.sin(rad) * step;
+
+                // 💡 注意：如果你有寫「牆壁碰撞偵測」的函數，建議在這裡檢查！
+                // 例如：if (!checkCollision(bot.x, bot.y)) { 復原座標... }
+
+                // 走完這一步後，把距離扣掉！
+                bot.targetMove -= step;
+            }
 
             let aimTolerance = level === 1 ? 30 : (level === 2 ? 15 : 5);
 
