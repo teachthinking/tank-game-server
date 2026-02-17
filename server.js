@@ -543,27 +543,47 @@ io.on('connection', (socket) => {
 
     socket.on('joinStudentPvP', (data) => {
         const room = getRoom(data.roomId);
+
+        // 1. 房間初始化
         if (!room.active) {
             room.active = true;
+            // 確保每次新開房，玩家清單都是乾淨的
+            room.players = {}; 
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             room.timeLeft = 300; 
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
-            console.log(`⚔️ 學生對戰房 [${data.roomId}] 啟動`);
+            console.log(`⚔️ 學生對戰房 [${data.roomId}] 初始化`);
+            
+            // 💡 建議：在這裡不要直接 startLoop()。
+            // 可以在有兩名以上真人玩家加入時，或另設一個 'startGame' 事件來觸發 startLoop()。
+            // 但如果為了教學方便，先保留在這裡啟動也是可以的。
             startLoop(data.roomId); 
         }
 
-        // ⚠️ 防呆檢查：如果 ID 重複，在終端機大聲警告！
+        // 2. ⚠️ 防呆檢查：如果 ID 重複，拒絕加入或給予新 ID
         if (room.players[data.id]) {
-            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！後來的玩家已覆蓋前者。請檢查前端 myId 是否為亂數！`);
+            console.log(`🚨 警告：玩家 ID [${data.id}] 重複或已存在房內！`);
+            // 選項 A: 阻止加入
+            // socket.emit('errorMsg', '連線衝突，請重新整理頁面');
+            // return; 
+            
+            // 選項 B: 容錯處理 (目前暫時保留你的覆蓋邏輯，但建議未來改為選項 A)
         }
 
+        // 3. 玩家資料建立
         const s = getSpawn(data.team, data.slot);
         room.players[data.id] = {
-            id: data.id, name: data.name,
-            team: data.team, slot: data.slot,
-            x: s.x, y: s.y, angle: s.a,
-            hp: 100, cooldown: 0, isBot: false
+            id: data.id, 
+            name: data.name,
+            team: data.team, 
+            slot: data.slot,
+            x: s.x, 
+            y: s.y, 
+            angle: s.a,
+            hp: 100, 
+            cooldown: 0, 
+            isBot: false
         };
 
         socket.playerId = data.id;
@@ -573,7 +593,7 @@ io.on('connection', (socket) => {
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
         
-        // 📊 統計目前人數
+        // 4. 📊 統計目前人數
         const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
         console.log(`👤 ${data.name} 加入 PvP 房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
     });
@@ -581,8 +601,10 @@ io.on('connection', (socket) => {
     socket.on('joinCoop', (data) => {
         const room = getRoom(data.roomId);
 
+        // 1. 房間初始化與機器人生成
         if (!room.active) {
             room.active = true;
+            room.players = {}; // 確保乾淨的房間
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             room.timeLeft = 300; 
             room.scores = { red: 0, blue: 0 };
@@ -594,26 +616,46 @@ io.on('connection', (socket) => {
                 let botName = '電腦_' + Math.floor(Math.random() * 1000); 
                 const s = getSafeRandomSpawn(room.walls); 
                 room.players[botId] = {
-                    id: botId, name: botName, team: 'red', slot: i,
-                    x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
-                    hp: 100, cooldown: 0, isBot: true, level: 2, targetMove: 0
+                    id: botId, 
+                    name: botName, 
+                    team: 'red', 
+                    slot: i,
+                    x: s.x, 
+                    y: s.y, 
+                    angle: s.a, 
+                    targetAngle: s.a,
+                    hp: 100, 
+                    cooldown: 0, 
+                    isBot: true, 
+                    level: 2, 
+                    targetMove: 0
                 };
             }
             console.log(`🤝 合作房 [${data.roomId}] 創立，生成 ${botCount} 個 AI`);
             startLoop(data.roomId); 
         }
 
-        // ⚠️ 防呆檢查：如果 ID 重複，在終端機大聲警告！
+        // 2. ⚠️ 防呆檢查
         if (room.players[data.id]) {
-            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！後來的玩家已覆蓋前者。請檢查前端 myId 是否為亂數！`);
+            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！`);
         }
 
+        // 3. 真人玩家資料建立
         const s = getSafeRandomSpawn(room.walls); 
         room.players[data.id] = {
-            id: data.id, name: data.name, team: 'blue', 
-            slot: Object.keys(room.players).length,
-            x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
-            hp: 100, cooldown: 0, isBot: false
+            id: data.id, 
+            name: data.name, 
+            team: 'blue', 
+            // 💡 這裡的小問題：如果有人中途退出再加入，Object.keys 的長度可能會導致 slot 號碼重複。
+            // 建議改為一個亂數，或是直接讓伺服器分配遞增的號碼
+            slot: Object.keys(room.players).length, 
+            x: s.x, 
+            y: s.y, 
+            angle: s.a, 
+            targetAngle: s.a,
+            hp: 100, 
+            cooldown: 0, 
+            isBot: false
         };
 
         socket.playerId = data.id;
@@ -623,7 +665,7 @@ io.on('connection', (socket) => {
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
         
-        // 📊 統計目前人數
+        // 4. 📊 統計目前人數
         const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
         console.log(`👤 ${data.name} 加入合作房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
     });
