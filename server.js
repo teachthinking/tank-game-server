@@ -168,19 +168,32 @@ function updateBots(room) {
         if (target) {
             let level = bot.level || 2;
 
-            let dx = target.x - bot.x;
-            let dy = target.y - bot.y;
-            let targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-            let diff = ((targetAngle - bot.angle + 540) % 360) - 180;
-            let turnSpeed = level === 1 ? 2 : (level === 2 ? 5 : 10);
-
-            if (Math.abs(diff) > turnSpeed) {
-                bot.angle += Math.sign(diff) * turnSpeed;
+            // ==========================================
+            // 🌟 1. 瞄準系統：加入「避障狀態」
+            // ==========================================
+            if (bot.evadeTimer > 0) {
+                // 撞牆了！暫時不要管玩家，專心倒車並轉動方向盤
+                bot.evadeTimer--;
+                bot.angle += 5; // 邊退邊轉彎，尋找新出路
             } else {
-                bot.angle = targetAngle;
+                // 正常情況：死盯著玩家瞄準
+                let dx = target.x - bot.x;
+                let dy = target.y - bot.y;
+                let targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                let diff = ((targetAngle - bot.angle + 540) % 360) - 180;
+                let turnSpeed = level === 1 ? 2 : (level === 2 ? 5 : 10);
+
+                if (Math.abs(diff) > turnSpeed) {
+                    bot.angle += Math.sign(diff) * turnSpeed;
+                } else {
+                    bot.angle = targetAngle;
+                }
             }
 
+            // ==========================================
+            // 🧠 2. 大腦決定步伐
+            // ==========================================
             if (!bot.targetMove || Math.abs(bot.targetMove) < 2) {
                 if (level === 1) {
                     if (Math.random() < 0.05) bot.targetMove = 10;
@@ -194,36 +207,40 @@ function updateBots(room) {
                     }
                 }
             }
-           if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
-                let speed = 2; 
+
+            // ==========================================
+            // 🦵 3. 雙腿執行與碰撞偵測
+            // ==========================================
+            if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
+                let speed = 2;
                 let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
-                
+
                 let rad = bot.angle * (Math.PI / 180);
-                
-                // 📝 1. 先記住移動前的「舊位置」
                 let oldX = bot.x;
                 let oldY = bot.y;
 
-                // 🚶‍♂️ 2. 試著往前（或往後）走
                 bot.x += Math.cos(rad) * step;
                 bot.y += Math.sin(rad) * step;
 
-                // 🧱 3. 檢查這一步有沒有撞到牆壁或「地圖邊界」
                 let hitWall = false;
-                let radius = 15; // 坦克的半徑
-                
-                // 🗺️ 新增：檢查是否超出地圖邊界 (請依照你的地圖大小調整數值，例如 800 和 600)
-                let mapWidth = room.width || 600;   // 假設地圖寬度是 600
-                let mapHeight = room.height || 600; // 假設地圖高度是 600
+                let radius = 15;
+                let mapWidth = room.width || 800;
+                let mapHeight = room.height || 600;
 
-                if (bot.x - radius < 0 || bot.x + radius > mapWidth || 
+                // 🗺️ 邊界檢查
+                if (bot.x - radius < 0 || bot.x + radius > mapWidth ||
                     bot.y - radius < 0 || bot.y + radius > mapHeight) {
-                    hitWall = true; // 撞到世界邊緣了！
+                    hitWall = true;
                 }
 
-                // 檢查內部障礙物 (維持原本的)
-                if (!hitWall && room.walls) {
-                    for (let w of room.walls) {
+                // 🔍 關鍵修正：智慧尋找牆壁陣列 (防止穿牆)
+                let currentWalls = room.walls;
+                if (!currentWalls && typeof walls !== 'undefined') currentWalls = walls; // 去全域變數找
+                if (!currentWalls) currentWalls = []; // 如果真的沒有牆，就給空陣列防呆
+
+                // 🧱 內部障礙物檢查
+                if (!hitWall && currentWalls.length > 0) {
+                    for (let w of currentWalls) {
                         if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
                             bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
                             hitWall = true;
@@ -232,22 +249,29 @@ function updateBots(room) {
                     }
                 }
 
-                // 🤖 4. 如果撞牆了，啟動應對機制！(維持原本的倒車邏輯)
+                // 💥 撞擊應對機制
                 if (hitWall) {
-                    bot.x = oldX; 
+                    bot.x = oldX;
                     bot.y = oldY;
-                    bot.targetMove = -30; // 強迫倒車
-                    bot.angle += (Math.random() > 0.5 ? 45 : -45); // 隨機轉彎
+
+                    // 如果是往前走撞到，就強迫倒車；如果是倒車撞到，就往前開
+                    bot.targetMove = bot.targetMove > 0 ? -40 : 40;
+
+                    // 🌟 啟動避障狀態：接下來 20 個 frame 不要瞄準玩家，專心脫困！
+                    bot.evadeTimer = 20;
                 } else {
                     bot.targetMove -= step;
                 }
             }
-       
 
+            // ==========================================
+            // 🔥 4. 開火邏輯
+            // ==========================================
             let aimTolerance = level === 1 ? 30 : (level === 2 ? 15 : 5);
+            // 只有在非避障狀態，且角度對準時才開火
+            let diffForFire = target ? (((Math.atan2(target.y - bot.y, target.x - bot.x) * 180 / Math.PI) - bot.angle + 540) % 360) - 180 : 999;
 
-            if (Math.abs(diff) < aimTolerance && bot.cooldown <= 0) {
-                // 🌟 使用 applyCmd 來開火，取代原本不存在的 spawnBullet
+            if (Math.abs(diffForFire) < aimTolerance && bot.cooldown <= 0 && (!bot.evadeTimer || bot.evadeTimer <= 0)) {
                 applyCmd(room, { id: bot.id, action: 'fire' });
                 bot.cooldown = level === 1 ? 50 : (level === 2 ? 30 : 15);
             }
