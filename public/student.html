@@ -262,6 +262,62 @@
                 padding: 6px;
                 border-radius: 5px;
             }
+
+            /* 加入手動模式按鈕顏色 */
+            .btn-manual {
+                background: #9c27b0;
+                /* 紫色 */
+                color: white;
+            }
+
+            .btn-manual.active {
+                background: #e91e63;
+                /* 啟動後變粉紅色 */
+                box-shadow: 0 0 10px #e91e63;
+            }
+
+            /* 彈出視窗背景 */
+            .modal-overlay {
+                display: none;
+                /* 預設隱藏 */
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+            }
+
+            /* 彈出視窗本體 */
+            .modal-content {
+                background: #fff;
+                color: #333;
+                padding: 25px;
+                border-radius: 12px;
+                max-width: 450px;
+                width: 90%;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+                text-align: center;
+            }
+
+            .modal-content ul {
+                list-style-type: none;
+                padding-left: 0;
+            }
+
+            .modal-content li {
+                margin-bottom: 8px;
+            }
+
+            code {
+                background: #eee;
+                padding: 2px 5px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
         </style>
 
         <div class="panel" id="loginPanel"
@@ -386,13 +442,48 @@
         </div>
         <div id="controls">
             <span id="statusText" style="margin-right:15px; font-size:0.9rem; color:#aaa;">未連線</span>
+            <button id="manualBtn" class="btn-manual" onclick="toggleManualMode()">🕹️ 手動模式: 關</button>
             <button class="btn-file" onclick="saveCode()">💾 存檔</button>
             <button class="btn-file" onclick="document.getElementById('fileInput').click()">📂 讀檔</button>
             <input type="file" id="fileInput" accept=".json,.xml" onchange="loadCodeFromFile(this)">
             <button class="btn-run" onclick="runCode()">▶️ 啟動 AI</button>
             <button class="btn-stop" onclick="stopCode()">⏹️ 停止</button>
         </div>
+        <button class="btn-file" onclick="openHelp()" style="background:#555;">❓ 幫助</button>
+        </div>
+        <div id="helpModal" class="modal-overlay">
+            <div class="modal-content">
+                <h2 style="color:#4caf50; margin-top:0;">🎮 坦克戰術指揮部：操作指引</h2>
+                <hr>
+                <div style="text-align: left; padding: 10px;">
+                    <strong>🤖 AI 模式：</strong>
+                    <ul>
+                        <li>使用 Blockly 積木編寫邏輯。</li>
+                        <li>點擊「▶️ 啟動 AI」進行自動化對戰。</li>
+                    </ul>
+                    <strong>🕹️ 手動模式：</strong>
+                    <ul>
+                        <li>切換至「手動模式: 開」以接管控制。</li>
+                        <li>移動：<code>W</code> / <code>S</code> 或 <code>↑</code> / <code>↓</code></li>
+                        <li>轉向：<code>A</code> / <code>D</code> 或 <code>←</code> / <code>→</code></li>
+                        <li><strong>發射砲彈：<code>空白鍵 (Space)</code></strong></li>
+                    </ul>
+                </div>
+                <div id="side-panel">
+
+                    <div class="contact-box">
+                        <h4>📞 聯絡資訊</h4>
+                        <p style="font-size: 1.1rem; font-weight: bold; color: #0d47a1; margin:0;">張世杰老師</p>
+                        <p style="margin: 5px 0; font-size:0.85rem;">授權與教學合作：<br>
+                            <a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn-run" onclick="closeHelp()" style="width:100%; margin-top:10px;">我知道了</button>
+            </div>
+        </div>
     </header>
+
 
     <div id="main-area">
         <div id="blocklyDiv"></div>
@@ -695,6 +786,24 @@
     </xml>
 
     <script>
+        // 打開說明視窗
+        function openHelp() {
+            document.getElementById('helpModal').style.display = 'flex';
+        }
+
+        // 關閉說明視窗
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // 點擊背景也可以關閉
+        window.onclick = function (event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target == modal) {
+                closeHelp();
+            }
+        }
+
         // --- 全域變數設定 ---
         const CANVAS_W = 600; const CANVAS_H = 600;
         const ctx = document.getElementById('gameCanvas').getContext('2d');
@@ -702,6 +811,7 @@
         let workspace = null;
         let interpreter = null;
         let isRunning = false;
+        let isManualMode = false;
 
         // 遊戲參數
         let myId = "", myTeam = "red", mySlot = 0, roomId = "101";
@@ -891,25 +1001,6 @@
             }
         }
 
-        // --- 更新 UI ---
-        // --- 更新 UI (防崩潰增強整合版) ---
-        function updateUI() {
-            try {
-                const sr = document.getElementById('scoreRed');
-                const sb = document.getElementById('scoreBlue');
-                const td = document.getElementById('timerDisplay');
-
-                if (sr) sr.innerText = gameScores.red;
-                if (sb) sb.innerText = gameScores.blue;
-                if (td) {
-                    let m = Math.floor(gameTimeLeft / 60);
-                    let s = Math.floor(gameTimeLeft % 60);
-                    td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
-                }
-            } catch (e) {
-                console.warn("UI 更新失敗 (但不影響遊戲執行):", e);
-            }
-        }
 
         // --- 更新 UI (防崩潰增強版) ---
         function updateUI() {
@@ -937,12 +1028,7 @@
             socket.emit('cmd', { roomId, id: myId, action, val });
         }
 
-        function updateUI() {
-            document.getElementById('scoreRed').innerText = gameScores.red;
-            document.getElementById('scoreBlue').innerText = gameScores.blue;
-            let m = Math.floor(gameTimeLeft / 60), s = Math.floor(gameTimeLeft % 60);
-            document.getElementById('timerDisplay').innerText = `${m}:${s < 10 ? '0' + s : s}`;
-        }
+  
 
         // --- Blockly 初始化 ---
         window.onload = function () {
@@ -1136,14 +1222,6 @@
             return false;
         }
 
-        function runCode() {
-            if (!players[myId] || players[myId].hp <= 0) { alert("尚未重生或連線！"); return; }
-            const code = Blockly.JavaScript.workspaceToCode(workspace);
-            interpreter = new Interpreter(code, initApi);
-            isRunning = true;
-            log("🤖 AI 啟動...");
-            stepCode();
-        }
 
         function stepCode() {
             if (!isRunning) return;
@@ -1191,6 +1269,70 @@
                 }
             };
             r.readAsText(f); i.value = '';
+
+
+        }
+        // --- 手動模式切換 ---
+        function toggleManualMode() {
+            isManualMode = !isManualMode;
+            const btn = document.getElementById('manualBtn');
+            document.activeElement.blur();
+
+            if (isManualMode) {
+                if (isRunning) stopCode(); // 如果 AI 正在跑，先停止 AI
+                btn.innerText = "🕹️ 手動模式: 開";
+                btn.classList.add('active');
+                log("🎮 手動控制已啟動 (W,A,S,D 與 空白鍵)");
+            } else {
+                btn.innerText = "🕹️ 手動模式: 關";
+                btn.classList.remove('active');
+                log("⏸️ 手動控制已關閉");
+            }
+        }
+
+        // --- 鍵盤監聽程式碼 ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+            }
+            // 只有在連線成功且開啟手動模式時才執行
+            if (!socket || !isManualMode || !myId) return;
+
+            const key = e.key.toLowerCase();
+            switch (key) {
+                case 'w':
+                case 'arrowup':
+                    sendCmd('move', 20);
+                    break;
+                case 's':
+                case 'arrowdown':
+                    sendCmd('move', -20);
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    sendCmd('turn', -10); // 向左轉 10 度
+                    break;
+                case 'd':
+                case 'arrowright':
+                    sendCmd('turn', 10);  // 向右轉 10 度
+                    break;
+                case ' ':
+                    sendCmd('fire', 0);
+                    break;
+            }
+        });
+
+        // 讓啟動 AI 時自動關閉手動模式
+        function runCode() {
+            if (!players[myId] || players[myId].hp <= 0) { alert("尚未重生或連線！"); return; }
+
+            if (isManualMode) toggleManualMode(); // 🤖 啟動 AI 時自動切換掉手動模式
+
+            const code = Blockly.JavaScript.workspaceToCode(workspace);
+            interpreter = new Interpreter(code, initApi);
+            isRunning = true;
+            log("🤖 AI 啟動...");
+            stepCode();
         }
     </script>
     <footer>
