@@ -208,46 +208,7 @@ function updateBots(room) {
                 }
             }
 
-            // ==========================================
-            // 🦵 3. 雙腿執行與碰撞偵測
-            // ==========================================
-            if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
-                let speed = 2;
-                let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
-
-                let rad = bot.angle * (Math.PI / 180);
-                let oldX = bot.x;
-                let oldY = bot.y;
-
-                bot.x += Math.cos(rad) * step;
-                bot.y += Math.sin(rad) * step;
-
-                let hitWall = false;
-                let radius = 15;
-                let mapWidth = room.width || 800;
-                let mapHeight = room.height || 600;
-
-                // 🗺️ 邊界檢查
-                if (bot.x - radius < 0 || bot.x + radius > mapWidth ||
-                    bot.y - radius < 0 || bot.y + radius > mapHeight) {
-                    hitWall = true;
-                }
-
-                // 🔍 關鍵修正：智慧尋找牆壁陣列 (防止穿牆)
-                let currentWalls = room.walls;
-                if (!currentWalls && typeof walls !== 'undefined') currentWalls = walls; // 去全域變數找
-                if (!currentWalls) currentWalls = []; // 如果真的沒有牆，就給空陣列防呆
-
-                // 🧱 內部障礙物檢查
-                if (!hitWall && currentWalls.length > 0) {
-                    for (let w of currentWalls) {
-                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
-                            bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
-                            hitWall = true;
-                            break;
-                        }
-                    }
-                }
+            雙腿執行與碰撞偵測
 
                 // 💥 撞擊應對機制
                 if (hitWall) {
