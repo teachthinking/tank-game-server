@@ -195,22 +195,47 @@ function updateBots(room) {
                 }
             }
             if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
-                // 設定移動速度 (這裡設為每幀移動 2 像素)
                 let speed = 2; 
-                
-                // 計算這一步要走多遠 (如果是最後一步，不要走過頭)
                 let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
                 
-                // 利用三角函數 (角度轉弧度)，算出 X 和 Y 分別要移動多少
                 let rad = bot.angle * (Math.PI / 180);
+                
+                // 📝 1. 先記住移動前的「舊位置」
+                let oldX = bot.x;
+                let oldY = bot.y;
+
+                // 🚶‍♂️ 2. 試著往前（或往後）走
                 bot.x += Math.cos(rad) * step;
                 bot.y += Math.sin(rad) * step;
 
-                // 💡 注意：如果你有寫「牆壁碰撞偵測」的函數，建議在這裡檢查！
-                // 例如：if (!checkCollision(bot.x, bot.y)) { 復原座標... }
+                // 🧱 3. 檢查這一步有沒有撞到牆壁 (假設牆壁在 room.walls 裡)
+                let hitWall = false;
+                let radius = 15; // 假設你的坦克半徑大約是 15 (可依實際大小調整)
+                
+                for (let w of room.walls) {
+                    // 簡單的矩形碰撞偵測
+                    if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
+                        bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
+                        hitWall = true;
+                        break;
+                    }
+                }
 
-                // 走完這一步後，把距離扣掉！
-                bot.targetMove -= step;
+                // 🤖 4. 如果撞牆了，啟動應對機制！
+                if (hitWall) {
+                    // 退回撞牆前的位置 (把卡在牆裡的腿拔出來)
+                    bot.x = oldX; 
+                    bot.y = oldY;
+                    
+                    // 讓大腦放棄原本直直衝的念頭，強迫它「倒車」！
+                    bot.targetMove = -30; // 撞牆就往後退 30 步
+                    
+                    // 偷偷干擾它的瞄準角度，讓它轉向左邊或右邊，下次前進才不會又撞同一個地方
+                    bot.angle += (Math.random() > 0.5 ? 45 : -45); 
+                } else {
+                    // 如果沒撞牆，才正常扣除剩餘步數
+                    bot.targetMove -= step;
+                }
             }
 
             let aimTolerance = level === 1 ? 30 : (level === 2 ? 15 : 5);
