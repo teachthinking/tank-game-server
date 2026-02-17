@@ -223,9 +223,9 @@ function updateBots(room) {
                 bot.y += Math.sin(rad) * step;
 
                 let hitWall = false;
-                let radius = 15;
-                let mapWidth = room.width || 800;
-                let mapHeight = room.height || 600;
+                let radius = TANK_RADIUS;
+                let mapWidth = CANVAS_W;
+                let mapHeight = CANVAS_H;
 
                 // 🗺️ 邊界檢查
                 if (bot.x - radius < 0 || bot.x + radius > mapWidth ||
@@ -241,8 +241,8 @@ function updateBots(room) {
                 // 🧱 內部障礙物檢查
                 if (!hitWall && currentWalls.length > 0) {
                     for (let w of currentWalls) {
-                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
-                            bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
+                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.w &&
+                            bot.y + radius > w.y && bot.y - radius < w.y + w.h) {
                             hitWall = true;
                             break;
                         }
@@ -324,7 +324,10 @@ function tickRoom(roomId) {
         // 扣除冷卻
         if (p.cooldown > 0) p.cooldown--;
 
-        // 處理平滑前進/後退
+        // AI 的移動已在 updateBots 內完成，這裡只處理真人玩家
+        if (p.isBot) continue;
+
+        // 處理平滑前進/後退 (真人玩家)
         if (p.targetMove && Math.abs(p.targetMove) > 0) {
             const stepSize = 4; // 移動速度
             const dir = p.targetMove > 0 ? 1 : -1;
