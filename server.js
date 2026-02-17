@@ -40,25 +40,25 @@ const PRESET_MAPS = {
         { "x": 320, "y": 240, "w": 40, "h": 40, "emoji": "🌵" },
         { "x": 320, "y": 200, "w": 40, "h": 40, "emoji": "🌵" },
         { "x": 320, "y": 160, "w": 40, "h": 40, "emoji": "🌵" },
-        { "x": 200, "y": 40,  "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 200, "y": 0,   "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 200, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 240, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 280, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 200, "y": 40, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 200, "y": 0, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 200, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 240, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 280, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 160, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 160, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 200, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 600, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 360, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 360, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 600, "y": 0,   "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 600, "y": 40,  "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 600, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" }
+        { "x": 600, "y": 0, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 600, "y": 40, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 600, "y": 80, "w": 40, "h": 40, "emoji": "🌲" }
     ],
     'map2': [
         { "x": 160, "y": 120, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 200, "y": 80,  "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 160, "y": 80,  "w": 40, "h": 40, "emoji": "🧱" },
+        { "x": 200, "y": 80, "w": 40, "h": 40, "emoji": "🧱" },
+        { "x": 160, "y": 80, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 160, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 360, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 360, "y": 200, "w": 40, "h": 40, "emoji": "🧱" },
@@ -72,8 +72,8 @@ const PRESET_MAPS = {
         { "x": 200, "y": 360, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 600, "y": 320, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 360, "y": 360, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 280, "y": 0,   "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 0,   "w": 40, "h": 40, "emoji": "🧱" }
+        { "x": 280, "y": 0, "w": 40, "h": 40, "emoji": "🧱" },
+        { "x": 320, "y": 0, "w": 40, "h": 40, "emoji": "🧱" }
     ]
 };
 
@@ -140,9 +140,9 @@ function applyCmd(room, data) {
             owner: p.id,
             team: p.team,
             distance: 0,
-            maxRange: BULLET_RANGE 
+            maxRange: BULLET_RANGE
         });
-        p.cooldown = COOLDOWN_TICKS; 
+        p.cooldown = COOLDOWN_TICKS;
     }
 }
 
@@ -176,9 +176,9 @@ function updateBots(room) {
             let turnSpeed = level === 1 ? 2 : (level === 2 ? 5 : 10);
 
             if (Math.abs(diff) > turnSpeed) {
-                bot.angle += Math.sign(diff) * turnSpeed; 
+                bot.angle += Math.sign(diff) * turnSpeed;
             } else {
-                bot.angle = targetAngle; 
+                bot.angle = targetAngle;
             }
 
             if (!bot.targetMove || Math.abs(bot.targetMove) < 2) {
@@ -188,13 +188,13 @@ function updateBots(room) {
                     if (minDist > 120) bot.targetMove = 15;
                 } else if (level === 3) {
                     if (minDist > 200) {
-                        bot.targetMove = 20; 
+                        bot.targetMove = 20;
                     } else if (minDist < 120) {
-                        bot.targetMove = -15; 
+                        bot.targetMove = -15;
                     }
                 }
             }
-            if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
+           if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
                 let speed = 2; 
                 let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
                 
@@ -208,35 +208,41 @@ function updateBots(room) {
                 bot.x += Math.cos(rad) * step;
                 bot.y += Math.sin(rad) * step;
 
-                // 🧱 3. 檢查這一步有沒有撞到牆壁 (假設牆壁在 room.walls 裡)
+                // 🧱 3. 檢查這一步有沒有撞到牆壁或「地圖邊界」
                 let hitWall = false;
-                let radius = 15; // 假設你的坦克半徑大約是 15 (可依實際大小調整)
+                let radius = 15; // 坦克的半徑
                 
-                for (let w of room.walls) {
-                    // 簡單的矩形碰撞偵測
-                    if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
-                        bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
-                        hitWall = true;
-                        break;
+                // 🗺️ 新增：檢查是否超出地圖邊界 (請依照你的地圖大小調整數值，例如 800 和 600)
+                let mapWidth = room.width || 800;   // 假設地圖寬度是 800
+                let mapHeight = room.height || 600; // 假設地圖高度是 600
+
+                if (bot.x - radius < 0 || bot.x + radius > mapWidth || 
+                    bot.y - radius < 0 || bot.y + radius > mapHeight) {
+                    hitWall = true; // 撞到世界邊緣了！
+                }
+
+                // 檢查內部障礙物 (維持原本的)
+                if (!hitWall && room.walls) {
+                    for (let w of room.walls) {
+                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
+                            bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
+                            hitWall = true;
+                            break;
+                        }
                     }
                 }
 
-                // 🤖 4. 如果撞牆了，啟動應對機制！
+                // 🤖 4. 如果撞牆了，啟動應對機制！(維持原本的倒車邏輯)
                 if (hitWall) {
-                    // 退回撞牆前的位置 (把卡在牆裡的腿拔出來)
                     bot.x = oldX; 
                     bot.y = oldY;
-                    
-                    // 讓大腦放棄原本直直衝的念頭，強迫它「倒車」！
-                    bot.targetMove = -30; // 撞牆就往後退 30 步
-                    
-                    // 偷偷干擾它的瞄準角度，讓它轉向左邊或右邊，下次前進才不會又撞同一個地方
-                    bot.angle += (Math.random() > 0.5 ? 45 : -45); 
+                    bot.targetMove = -30; // 強迫倒車
+                    bot.angle += (Math.random() > 0.5 ? 45 : -45); // 隨機轉彎
                 } else {
-                    // 如果沒撞牆，才正常扣除剩餘步數
                     bot.targetMove -= step;
                 }
             }
+       
 
             let aimTolerance = level === 1 ? 30 : (level === 2 ? 15 : 5);
 
@@ -254,22 +260,22 @@ function getSafeRandomSpawn(walls) {
     let rx, ry;
     let isSafe = false;
     let attempts = 0;
-    
+
     // 嘗試 50 次找尋空白地點 (假設 TANK_RADIUS 約為 20，我們留 50 的安全邊界)
     while (!isSafe && attempts < 50) {
         rx = 50 + Math.random() * (CANVAS_W - 100);
         ry = 50 + Math.random() * (CANVAS_H - 100);
-        
+
         // 利用您寫好的 checkCol 檢查是否撞牆
         if (!checkCol(walls, rx, ry, 20)) {
             isSafe = true;
         }
         attempts++;
     }
-    
+
     // 如果地圖太滿真的找不到，就給個預設防呆值
     if (!isSafe) { rx = 100; ry = 100; }
-    
+
     // 回傳座標與隨機朝向 (0~360度)
     return { x: rx, y: ry, a: Math.random() * 360 };
 }
@@ -299,13 +305,13 @@ function tickRoom(roomId) {
             const stepSize = 4; // 移動速度
             const dir = p.targetMove > 0 ? 1 : -1;
             const step = Math.min(stepSize, Math.abs(p.targetMove));
-            
+
             const rad = p.angle * Math.PI / 180;
             const dx = Math.cos(rad) * step * dir;
             const dy = Math.sin(rad) * step * dir;
-            
+
             if (!checkCol(room.walls, p.x + dx, p.y + dy, TANK_RADIUS)) {
-                p.x += dx; 
+                p.x += dx;
                 p.y += dy;
                 p.targetMove -= step * dir;
             } else {
@@ -360,7 +366,7 @@ function tickRoom(roomId) {
                             const r2 = rooms[roomId];
                             if (!r2 || !r2.players[savedPid]) return;
                             const pp = r2.players[savedPid];
-                            
+
                             // 🌟 判斷：如果是 AI 給隨機點，如果是玩家則回到固定出生點
                             let s;
                             if (pp.isBot) {
@@ -368,10 +374,10 @@ function tickRoom(roomId) {
                             } else {
                                 s = getSpawn(pp.team, pp.slot);
                             }
-                            
+
                             pp.x = s.x; pp.y = s.y; pp.angle = s.a; pp.hp = 100;
                             if (pp.isBot) pp.targetAngle = s.a; // 同步 AI 角度
-                            
+
                         }, RESPAWN_MS);
                     }
                     break;
@@ -495,7 +501,7 @@ io.on('connection', (socket) => {
 
         // 強制覆寫，確保套用到正確的玩家身上
         data.id = playerId;
-        data.val = val; 
+        data.val = val;
 
         applyCmd(room, data);
     });
@@ -504,11 +510,11 @@ io.on('connection', (socket) => {
         console.log('斷線:', socket.id);
         const roomId = socket.roomId;
         const pid = socket.playerId;
-        
+
         if (roomId && pid && rooms[roomId]) {
             // 1. 移除斷線的玩家
             delete rooms[roomId].players[pid];
-            
+
             // 2. 🌟 檢查房間裡是否還有「真人玩家」 (過濾掉 isBot)
             let hasRealPlayer = false;
             for (let id in rooms[roomId].players) {
@@ -530,11 +536,11 @@ io.on('connection', (socket) => {
         }
     });
 
-     // 🌟 修正後的個人專屬練習模式
+    // 🌟 修正後的個人專屬練習模式
     socket.on('joinPractice', (data) => {
         // 1. 使用玩家的 ID 當作專屬房間名稱，確保每次 F5 都是全新的環境
         // (假設每次 F5 前端都會產生新的 data.id)
-        const PR_ID = "practice_" + data.id; 
+        const PR_ID = "practice_" + data.id;
         const room = getRoom(PR_ID);
 
         // 2. 🌟 強制重置房間狀態 (避免 F5 後舊物件殘留)
@@ -542,28 +548,28 @@ io.on('connection', (socket) => {
         room.bullets = []; // 清空舊子彈
         room.active = true;
         room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-        room.timeLeft = 999; 
+        room.timeLeft = 999;
 
         // 依照學生選的數量來決定難度
         let aiLevel = data.botCount === 1 ? 1 : (data.botCount === 3 ? 2 : 3);
-        
+
         // 3. 🌟 生成全新且隨機的 AI
         for (let i = 1; i <= data.botCount; i++) {
-            let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
-            let botName = '電腦_' + Math.floor(Math.random() * 1000); 
-            
+            let botId = 'bot_' + Math.random().toString(36).substr(2, 6);
+            let botName = '電腦_' + Math.floor(Math.random() * 1000);
+
             // 使用我們剛寫好的隨機點函數
-            const s = getSafeRandomSpawn(room.walls); 
-            
+            const s = getSafeRandomSpawn(room.walls);
+
             room.players[botId] = {
                 id: botId, name: botName, team: 'red', slot: i,
                 x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
-                hp: 100, cooldown: 0, 
+                hp: 100, cooldown: 0,
                 isBot: true, level: aiLevel, targetMove: 0
             };
         }
         console.log(`🤖 專屬練習房 [${PR_ID}] 啟動，生成 ${data.botCount} 個 AI (等級 ${aiLevel})`);
-        
+
         // 啟動物理迴圈
         startLoop(PR_ID);
 
@@ -571,12 +577,12 @@ io.on('connection', (socket) => {
         room.players[data.id] = {
             id: data.id, name: data.name,
             team: 'blue', slot: Object.keys(room.players).length,
-            x: 100 + (Math.random() * 50), y: 300, angle: 0, 
+            x: 100 + (Math.random() * 50), y: 300, angle: 0,
             hp: 100, cooldown: 0, isBot: false
         };
 
         socket.playerId = data.id;
-        socket.roomId = PR_ID; 
+        socket.roomId = PR_ID;
 
         socket.join(PR_ID);
         socket.emit('map', { walls: room.walls });
@@ -591,17 +597,17 @@ io.on('connection', (socket) => {
         if (!room.active) {
             room.active = true;
             // 確保每次新開房，玩家清單都是乾淨的
-            room.players = {}; 
+            room.players = {};
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300; 
+            room.timeLeft = 300;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
             console.log(`⚔️ 學生對戰房 [${data.roomId}] 初始化`);
-            
+
             // 💡 建議：在這裡不要直接 startLoop()。
             // 可以在有兩名以上真人玩家加入時，或另設一個 'startGame' 事件來觸發 startLoop()。
             // 但如果為了教學方便，先保留在這裡啟動也是可以的。
-            startLoop(data.roomId); 
+            startLoop(data.roomId);
         }
 
         // 2. ⚠️ 防呆檢查：如果 ID 重複，拒絕加入或給予新 ID
@@ -610,22 +616,22 @@ io.on('connection', (socket) => {
             // 選項 A: 阻止加入
             // socket.emit('errorMsg', '連線衝突，請重新整理頁面');
             // return; 
-            
+
             // 選項 B: 容錯處理 (目前暫時保留你的覆蓋邏輯，但建議未來改為選項 A)
         }
 
         // 3. 玩家資料建立
         const s = getSpawn(data.team, data.slot);
         room.players[data.id] = {
-            id: data.id, 
+            id: data.id,
             name: data.name,
-            team: data.team, 
+            team: data.team,
             slot: data.slot,
-            x: s.x, 
-            y: s.y, 
+            x: s.x,
+            y: s.y,
             angle: s.a,
-            hp: 100, 
-            cooldown: 0, 
+            hp: 100,
+            cooldown: 0,
             isBot: false
         };
 
@@ -635,7 +641,7 @@ io.on('connection', (socket) => {
         socket.join(data.roomId);
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
-        
+
         // 4. 📊 統計目前人數
         const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
         console.log(`👤 ${data.name} 加入 PvP 房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
@@ -649,33 +655,33 @@ io.on('connection', (socket) => {
             room.active = true;
             room.players = {}; // 確保乾淨的房間
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300; 
+            room.timeLeft = 300;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
 
-            let botCount = data.botCount || 5; 
+            let botCount = data.botCount || 5;
             for (let i = 1; i <= botCount; i++) {
-                let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
-                let botName = '電腦_' + Math.floor(Math.random() * 1000); 
-                const s = getSafeRandomSpawn(room.walls); 
+                let botId = 'bot_' + Math.random().toString(36).substr(2, 6);
+                let botName = '電腦_' + Math.floor(Math.random() * 1000);
+                const s = getSafeRandomSpawn(room.walls);
                 room.players[botId] = {
-                    id: botId, 
-                    name: botName, 
-                    team: 'red', 
+                    id: botId,
+                    name: botName,
+                    team: 'red',
                     slot: i,
-                    x: s.x, 
-                    y: s.y, 
-                    angle: s.a, 
+                    x: s.x,
+                    y: s.y,
+                    angle: s.a,
                     targetAngle: s.a,
-                    hp: 100, 
-                    cooldown: 0, 
-                    isBot: true, 
-                    level: 2, 
+                    hp: 100,
+                    cooldown: 0,
+                    isBot: true,
+                    level: 2,
                     targetMove: 0
                 };
             }
             console.log(`🤝 合作房 [${data.roomId}] 創立，生成 ${botCount} 個 AI`);
-            startLoop(data.roomId); 
+            startLoop(data.roomId);
         }
 
         // 2. ⚠️ 防呆檢查
@@ -684,20 +690,20 @@ io.on('connection', (socket) => {
         }
 
         // 3. 真人玩家資料建立
-        const s = getSafeRandomSpawn(room.walls); 
+        const s = getSafeRandomSpawn(room.walls);
         room.players[data.id] = {
-            id: data.id, 
-            name: data.name, 
-            team: 'blue', 
+            id: data.id,
+            name: data.name,
+            team: 'blue',
             // 💡 這裡的小問題：如果有人中途退出再加入，Object.keys 的長度可能會導致 slot 號碼重複。
             // 建議改為一個亂數，或是直接讓伺服器分配遞增的號碼
-            slot: Object.keys(room.players).length, 
-            x: s.x, 
-            y: s.y, 
-            angle: s.a, 
+            slot: Object.keys(room.players).length,
+            x: s.x,
+            y: s.y,
+            angle: s.a,
             targetAngle: s.a,
-            hp: 100, 
-            cooldown: 0, 
+            hp: 100,
+            cooldown: 0,
             isBot: false
         };
 
@@ -707,7 +713,7 @@ io.on('connection', (socket) => {
         socket.join(data.roomId);
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
-        
+
         // 4. 📊 統計目前人數
         const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
         console.log(`👤 ${data.name} 加入合作房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
