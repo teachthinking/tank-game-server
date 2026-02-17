@@ -342,7 +342,7 @@
 
             <div id="classOptions">
                 <div class="form-row">
-                    <label>房間代碼</label>
+                    <label>戰場編號</label>
                     <input type="text" id="roomId" value="1234">
                 </div>
                 <div class="form-group-half">
@@ -366,8 +366,8 @@
 
             <div id="practiceOptions" style="display: none;">
                 <div class="form-row">
-                    <label>合作房號</label>
-                    <input type="text" id="practiceRoomId" value="coop_1" placeholder="與同學輸入相同房號即可組隊">
+                    <label>戰場編號</label>
+                    <input type="text" id="practiceRoomId" value="coop_1" placeholder="與同學輸入相同戰場編號即可組隊">
                 </div>
                 <div class="form-row">
                     <label>選擇地圖</label>
@@ -389,7 +389,7 @@
 
             <div id="pvpOptions" style="display: none;">
                 <div class="form-row">
-                    <label>對戰房號</label>
+                    <label>戰場編號</label>
                     <input type="text" id="pvpRoomId" value="999" placeholder="與對手輸入相同數字">
                 </div>
                 <div class="form-row">
@@ -922,7 +922,7 @@
                     myId = socket.id;
 
                     if (mode === 'class') {
-                        // 👨‍🏫 老師開房模式
+                        // 👨‍🏫 老師開戰場模式
                         roomId = document.getElementById('roomId') ? document.getElementById('roomId').value : "1234";
                         myTeam = document.getElementById('team') ? document.getElementById('team').value : "red";
                         mySlot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
@@ -931,14 +931,14 @@
                         socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot: mySlot });
 
                     } else if (mode === 'practice') {
-                        // 1. 抓取學生介面上輸入的「合作房號」(如果沒輸入，預設為 coop_1)
+                        // 1. 抓取學生介面上輸入的「戰場編號」(如果沒輸入，預設為 coop_1)
                         roomId = document.getElementById('practiceRoomId') ? document.getElementById('practiceRoomId').value : "coop_1";
                         myTeam = 'blue';
                         const mapId = document.getElementById('practiceMap') ? document.getElementById('practiceMap').value : "map1";
                         const botCount = document.getElementById('botCount') ? document.getElementById('botCount').value : "1";
 
                         // 2. 🌟 關鍵修正：呼叫 joinCoop 而不是 joinPractice！
-                        // 並且把 roomId 傳給伺服器，讓輸入同房號的學生能相遇！
+                        // 並且把 roomId 傳給伺服器，讓輸入同戰場編號的學生能相遇！
                         socket.emit('joinCoop', {
                             id: socket.id,
                             name: name,
