@@ -208,60 +208,56 @@ function updateBots(room) {
                 }
             }
 
-
             // ==========================================
-            // 🦵 3. 雙腿執行與碰撞偵測 (分軸檢測版)
+            // 🦵 3. 雙腿執行與碰撞偵測
             // ==========================================
             if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
                 let speed = 2;
                 let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
-                let rad = bot.angle * (Math.PI / 180);
 
+                let rad = bot.angle * (Math.PI / 180);
+                let oldX = bot.x;
+                let oldY = bot.y;
+
+                bot.x += Math.cos(rad) * step;
+                bot.y += Math.sin(rad) * step;
+
+                let hitWall = false;
                 let radius = 15;
                 let mapWidth = room.width || 800;
                 let mapHeight = room.height || 600;
-                let currentWalls = room.walls || (typeof walls !== 'undefined' ? walls : []);
 
-                // --- 碰撞檢查函式 (封裝起來重複使用) ---
-                const isColliding = (newX, newY) => {
-                    // 1. 邊界檢查
-                    if (newX - radius < 0 || newX + radius > mapWidth ||
-                        newY - radius < 0 || newY + radius > mapHeight) return true;
+                // 🗺️ 邊界檢查
+                if (bot.x - radius < 0 || bot.x + radius > mapWidth ||
+                    bot.y - radius < 0 || bot.y + radius > mapHeight) {
+                    hitWall = true;
+                }
 
-                    // 2. 牆壁檢查
+                // 🔍 關鍵修正：智慧尋找牆壁陣列 (防止穿牆)
+                let currentWalls = room.walls;
+                if (!currentWalls && typeof walls !== 'undefined') currentWalls = walls; // 去全域變數找
+                if (!currentWalls) currentWalls = []; // 如果真的沒有牆，就給空陣列防呆
+
+                // 🧱 內部障礙物檢查
+                if (!hitWall && currentWalls.length > 0) {
                     for (let w of currentWalls) {
-                        if (newX + radius > w.x && newX - radius < w.x + w.width &&
-                            newY + radius > w.y && newY - radius < w.y + w.height) {
-                            return true;
+                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.width &&
+                            bot.y + radius > w.y && bot.y - radius < w.y + w.height) {
+                            hitWall = true;
+                            break;
                         }
                     }
-                    return false;
-                };
-
-                let hitWall = false;
-
-                // --- 分開嘗試移動 X 和 Y (實現滑行效果) ---
-                let nextX = bot.x + Math.cos(rad) * step;
-                let nextY = bot.y + Math.sin(rad) * step;
-
-                // 先試 X
-                if (!isColliding(nextX, bot.y)) {
-                    bot.x = nextX;
-                } else {
-                    hitWall = true;
                 }
 
-                // 再試 Y
-                if (!isColliding(bot.x, nextY)) {
-                    bot.y = nextY;
-                } else {
-                    hitWall = true;
-                }
-
-                // --- 撞擊應對機制 ---
+                // 💥 撞擊應對機制
                 if (hitWall) {
-                    // 撞牆反應：強迫改變目標移動距離 (觸發避障)
+                    bot.x = oldX;
+                    bot.y = oldY;
+
+                    // 如果是往前走撞到，就強迫倒車；如果是倒車撞到，就往前開
                     bot.targetMove = bot.targetMove > 0 ? -40 : 40;
+
+                    // 🌟 啟動避障狀態：接下來 20 個 frame 不要瞄準玩家，專心脫困！
                     bot.evadeTimer = 20;
                 } else {
                     bot.targetMove -= step;
