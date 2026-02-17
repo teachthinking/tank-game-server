@@ -570,6 +570,56 @@ io.on('connection', (socket) => {
         io.to(data.roomId).emit('state', buildState(room));
         console.log(`👤 ${data.name} 加入學生對戰房 [${data.roomId}]`);
     });
+
+    // 🌟 新增：學生組團對抗電腦 (PvE 合作模式)
+    socket.on('joinCoop', (data) => {
+        // 學生們必須輸入相同的 data.roomId 才能進入同一個房間
+        const room = getRoom(data.roomId);
+
+        if (!room.active) {
+            // 如果房間還沒啟動，代表他是第一個進來的隊長
+            // 我們負責初始化房間與 AI 大軍
+            room.active = true;
+            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
+            room.timeLeft = 300; // 5 分鐘
+            room.scores = { red: 0, blue: 0 };
+            room.bullets = [];
+
+            // 產生電腦大軍 (全部設定為 Red 隊)
+            let botCount = data.botCount || 5; // 預設 5 台電腦
+            for (let i = 1; i <= botCount; i++) {
+                let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
+                let botName = '電腦_' + Math.floor(Math.random() * 1000); 
+                const s = getSafeRandomSpawn(room.walls); 
+                
+                room.players[botId] = {
+                    id: botId, name: botName, team: 'red', slot: i,
+                    x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
+                    hp: 100, cooldown: 0, 
+                    isBot: true, level: 2, targetMove: 0
+                };
+            }
+            console.log(`🤝 合作房 [${data.roomId}] 創立，生成 ${botCount} 個 AI`);
+            startLoop(data.roomId); 
+        }
+
+        // 🌟 真人玩家加入 (全部強制設定為 Blue 隊)
+        const s = getSafeRandomSpawn(room.walls); // 玩家也從安全隨機點出生
+        room.players[data.id] = {
+            id: data.id, name: data.name,
+            team: 'blue', slot: Object.keys(room.players).length,
+            x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
+            hp: 100, cooldown: 0, isBot: false
+        };
+
+        socket.playerId = data.id;
+        socket.roomId = data.roomId;
+
+        socket.join(data.roomId);
+        socket.emit('map', { walls: room.walls });
+        io.to(data.roomId).emit('state', buildState(room));
+        console.log(`👤 ${data.name} 加入合作對戰房 [${data.roomId}]`);
+    });
 });
 
 const PORT = process.env.PORT || 3000;
