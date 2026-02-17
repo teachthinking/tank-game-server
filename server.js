@@ -512,21 +512,45 @@ io.on('connection', (socket) => {
     });
 
     socket.on('cmd', (data) => {
-        // 🌟 關鍵修正 1：直接使用 Server 端記錄的 Socket 資訊
-        // 不要依賴 Client 傳來的 data.roomId，因為可能沒更新到
+        // 🌟 確保玩家確實有在房間內
         const roomId = socket.roomId;
         const playerId = socket.playerId;
-
-        if (!roomId || !playerId) return; // 確保玩家確實有在房間內
+        if (!roomId || !playerId) return;
 
         const room = rooms[roomId];
         if (!room || !room.active) return;
 
-        // 🌟 關鍵修正 2：確保數值是「數字 Float」，避免字串相加導致物理引擎卡死
+        // 🌟 1. 取得該名玩家的物件
+        const player = room.players[playerId];
+        if (!player || player.hp <= 0) return;
+
+        // ==========================================
+        // 🛡️ 防護一：頻率限制 (Rate Limiting) 
+        // ==========================================
+        const now = Date.now();
+        // 如果是第一次發送 (lastCmdTime 不存在)，視為 0
+        if (now - (player.lastCmdTime || 0) < 400) {
+            return; // 拒絕處理：距離上次指令不到 0.4 秒 (400ms)，判定為外掛狂按或網路異常
+        }
+        player.lastCmdTime = now; // 記錄這次成功指令的時間
+
+        // ==========================================
+        // 🛡️ 防護二：數值箝制 (Clamping) 避免超速外掛
+        // ==========================================
         let val = Number(data.val);
         if (isNaN(val)) val = 0;
 
-        // 強制覆寫，確保套用到正確的玩家身上
+        // 根據不同動作，限制最大值與最小值 (數值可依你的遊戲平衡調整)
+        if (data.action === 'move') {
+            val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
+        } else if (data.action === 'turn') {
+            val = Math.max(-15, Math.min(15, val)); // 限制轉向最大只能傳 15 度
+        }
+
+        // ==========================================
+        // ⚔️ 執行指令
+        // ==========================================
+        // 強制覆寫 ID 與過濾後的安全數值，確保套用到正確的玩家身上
         data.id = playerId;
         data.val = val;
 
