@@ -436,8 +436,24 @@ io.on('connection', (socket) => {
     });
 
     socket.on('cmd', (data) => {
-        const room = rooms[data.roomId];
-        if (!room) return;
+        // 🌟 關鍵修正 1：直接使用 Server 端記錄的 Socket 資訊
+        // 不要依賴 Client 傳來的 data.roomId，因為可能沒更新到
+        const roomId = socket.roomId;
+        const playerId = socket.playerId;
+
+        if (!roomId || !playerId) return; // 確保玩家確實有在房間內
+
+        const room = rooms[roomId];
+        if (!room || !room.active) return;
+
+        // 🌟 關鍵修正 2：確保數值是「數字 Float」，避免字串相加導致物理引擎卡死
+        let val = Number(data.val);
+        if (isNaN(val)) val = 0;
+
+        // 強制覆寫，確保套用到正確的玩家身上
+        data.id = playerId;
+        data.val = val; 
+
         applyCmd(room, data);
     });
 
