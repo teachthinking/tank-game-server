@@ -48,12 +48,12 @@ const PRESET_MAPS = {
         { "x": 160, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 160, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 200, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 600, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 360, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
         { "x": 360, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 0,   "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 40,  "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" }
+        { "x": 600, "y": 0,   "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 600, "y": 40,  "w": 40, "h": 40, "emoji": "🌲" },
+        { "x": 600, "y": 80,  "w": 40, "h": 40, "emoji": "🌲" }
     ],
     'map2': [
         { "x": 160, "y": 120, "w": 40, "h": 40, "emoji": "🧱" },
@@ -70,7 +70,7 @@ const PRESET_MAPS = {
         { "x": 200, "y": 200, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 200, "y": 320, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 200, "y": 360, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 320, "w": 40, "h": 40, "emoji": "🧱" },
+        { "x": 600, "y": 320, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 360, "y": 360, "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 280, "y": 0,   "w": 40, "h": 40, "emoji": "🧱" },
         { "x": 320, "y": 0,   "w": 40, "h": 40, "emoji": "🧱" }
@@ -572,21 +572,19 @@ io.on('connection', (socket) => {
     });
 
     // 🌟 新增：學生組團對抗電腦 (PvE 合作模式)
+    // 🌟 新增：學生組團對抗電腦 (PvE 合作模式)
     socket.on('joinCoop', (data) => {
-        // 學生們必須輸入相同的 data.roomId 才能進入同一個房間
         const room = getRoom(data.roomId);
 
         if (!room.active) {
-            // 如果房間還沒啟動，代表他是第一個進來的隊長
-            // 我們負責初始化房間與 AI 大軍
+            // ... (原本產生 AI 的邏輯不動) ...
             room.active = true;
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300; // 5 分鐘
+            room.timeLeft = 300; 
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
 
-            // 產生電腦大軍 (全部設定為 Red 隊)
-            let botCount = data.botCount || 5; // 預設 5 台電腦
+            let botCount = data.botCount || 5; 
             for (let i = 1; i <= botCount; i++) {
                 let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
                 let botName = '電腦_' + Math.floor(Math.random() * 1000); 
@@ -603,22 +601,31 @@ io.on('connection', (socket) => {
             startLoop(data.roomId); 
         }
 
+        // 🌟 關鍵修正 1：強制使用 Socket.io 配發的唯一 ID！
+        // 不要相信前端傳來的 data.id，因為同一個瀏覽器開兩頁可能傳一樣的 ID
+        const myUniqueId = socket.id; 
+
         // 🌟 真人玩家加入 (全部強制設定為 Blue 隊)
-        const s = getSafeRandomSpawn(room.walls); // 玩家也從安全隨機點出生
-        room.players[data.id] = {
-            id: data.id, name: data.name,
-            team: 'blue', slot: Object.keys(room.players).length,
+        const s = getSafeRandomSpawn(room.walls); 
+        
+        // 🌟 關鍵修正 2：用 myUniqueId 當作玩家的 Key 和 id
+        room.players[myUniqueId] = {
+            id: myUniqueId,     
+            name: data.name,    // 名字還是可以用學生輸入的
+            team: 'blue', 
+            slot: Object.keys(room.players).length,
             x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
             hp: 100, cooldown: 0, isBot: false
         };
 
-        socket.playerId = data.id;
+        // 🌟 關鍵修正 3：將 socket 的綁定也改成 myUniqueId
+        socket.playerId = myUniqueId;
         socket.roomId = data.roomId;
 
         socket.join(data.roomId);
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
-        console.log(`👤 ${data.name} 加入合作對戰房 [${data.roomId}]`);
+        console.log(`👤 ${data.name} (${myUniqueId}) 加入合作對戰房 [${data.roomId}]`);
     });
 });
 
