@@ -213,7 +213,7 @@ function updateBots(room) {
                 let radius = 15; // 坦克的半徑
                 
                 // 🗺️ 新增：檢查是否超出地圖邊界 (請依照你的地圖大小調整數值，例如 800 和 600)
-                let mapWidth = room.width || 800;   // 假設地圖寬度是 800
+                let mapWidth = room.width || 600;   // 假設地圖寬度是 600
                 let mapHeight = room.height || 600; // 假設地圖高度是 600
 
                 if (bot.x - radius < 0 || bot.x + radius > mapWidth || 
