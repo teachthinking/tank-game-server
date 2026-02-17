@@ -20,7 +20,7 @@ app.use(express.static(__dirname + '/public'));
 //  常數（與前端保持一致）
 // ============================================================
 const CANVAS_W = 600;
-const CANVAS_H = 400;
+const CANVAS_H = 600;
 const BULLET_SPEED = 8;
 const BULLET_RANGE = 180;
 const TANK_RADIUS = 12;
@@ -206,6 +206,31 @@ function updateBots(room) {
     }
 }
 
+// 🌟 新增：產生隨機且不會卡在牆壁內的安全出生點
+function getSafeRandomSpawn(walls) {
+    let rx, ry;
+    let isSafe = false;
+    let attempts = 0;
+    
+    // 嘗試 50 次找尋空白地點 (假設 TANK_RADIUS 約為 20，我們留 50 的安全邊界)
+    while (!isSafe && attempts < 50) {
+        rx = 50 + Math.random() * (CANVAS_W - 100);
+        ry = 50 + Math.random() * (CANVAS_H - 100);
+        
+        // 利用您寫好的 checkCol 檢查是否撞牆
+        if (!checkCol(walls, rx, ry, 20)) {
+            isSafe = true;
+        }
+        attempts++;
+    }
+    
+    // 如果地圖太滿真的找不到，就給個預設防呆值
+    if (!isSafe) { rx = 100; ry = 100; }
+    
+    // 回傳座標與隨機朝向 (0~360度)
+    return { x: rx, y: ry, a: Math.random() * 360 };
+}
+
 // ============================================================
 //  物理迴圈 (每 50ms 執行一次)
 // ============================================================
@@ -292,8 +317,18 @@ function tickRoom(roomId) {
                             const r2 = rooms[roomId];
                             if (!r2 || !r2.players[savedPid]) return;
                             const pp = r2.players[savedPid];
-                            const s = getSpawn(pp.team, pp.slot);
+                            
+                            // 🌟 判斷：如果是 AI 給隨機點，如果是玩家則回到固定出生點
+                            let s;
+                            if (pp.isBot) {
+                                s = getSafeRandomSpawn(r2.walls);
+                            } else {
+                                s = getSpawn(pp.team, pp.slot);
+                            }
+                            
                             pp.x = s.x; pp.y = s.y; pp.angle = s.a; pp.hp = 100;
+                            if (pp.isBot) pp.targetAngle = s.a; // 同步 AI 角度
+                            
                         }, RESPAWN_MS);
                     }
                     break;
@@ -410,42 +445,70 @@ io.on('connection', (socket) => {
         console.log('斷線:', socket.id);
         const roomId = socket.roomId;
         const pid = socket.playerId;
+        
         if (roomId && pid && rooms[roomId]) {
+            // 1. 移除斷線的玩家
             delete rooms[roomId].players[pid];
-            io.to(roomId).emit('state', buildState(rooms[roomId]));
+            
+            // 2. 🌟 檢查房間裡是否還有「真人玩家」 (過濾掉 isBot)
+            let hasRealPlayer = false;
+            for (let id in rooms[roomId].players) {
+                if (!rooms[roomId].players[id].isBot) {
+                    hasRealPlayer = true;
+                    break;
+                }
+            }
+
+            // 3. 🌟 如果沒有真人玩家了 (只剩 AI 或全空)，就關閉並刪除這個房間
+            if (!hasRealPlayer) {
+                clearInterval(rooms[roomId].loopHandle); // 停止物理迴圈
+                delete rooms[roomId];                    // 釋放記憶體
+                console.log(`🗑️ 房間 ${roomId} 已無玩家，關閉並回收資源`);
+            } else {
+                // 如果還有其他真人，只廣播有人離開
+                io.to(roomId).emit('state', buildState(rooms[roomId]));
+            }
         }
     });
 
-    // 🌟 修正後的自由練習模式
+     // 🌟 修正後的個人專屬練習模式
     socket.on('joinPractice', (data) => {
-        const PR_ID = "practice_room"; 
+        // 1. 使用玩家的 ID 當作專屬房間名稱，確保每次 F5 都是全新的環境
+        // (假設每次 F5 前端都會產生新的 data.id)
+        const PR_ID = "practice_" + data.id; 
         const room = getRoom(PR_ID);
 
-        if (!room.active) {
-            room.active = true;
-            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 999; 
+        // 2. 🌟 強制重置房間狀態 (避免 F5 後舊物件殘留)
+        room.players = {}; // 清空所有舊玩家與舊 AI
+        room.bullets = []; // 清空舊子彈
+        room.active = true;
+        room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
+        room.timeLeft = 999; 
 
-            // 依照學生選的數量來決定難度
-            let aiLevel = data.botCount === 1 ? 1 : (data.botCount === 3 ? 2 : 3);
+        // 依照學生選的數量來決定難度
+        let aiLevel = data.botCount === 1 ? 1 : (data.botCount === 3 ? 2 : 3);
+        
+        // 3. 🌟 生成全新且隨機的 AI
+        for (let i = 1; i <= data.botCount; i++) {
+            let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
+            let botName = '電腦_' + Math.floor(Math.random() * 1000); 
             
-            // 🌟 真正生成 AI 的迴圈
-            for (let i = 1; i <= data.botCount; i++) {
-                let botId = 'bot_' + i; 
-                let botName = '電腦 ' + i;
-                const s = getSpawn('red', i); 
-                
-                room.players[botId] = {
-                    id: botId, name: botName, team: 'red', slot: i,
-                    x: s.x, y: s.y, angle: s.a,
-                    hp: 100, cooldown: 0, 
-                    isBot: true, level: aiLevel, targetMove: 0
-                };
-            }
-            console.log(`🤖 練習房啟動，生成 ${data.botCount} 個 AI (等級 ${aiLevel})`);
-            startLoop(PR_ID);
+            // 使用我們剛寫好的隨機點函數
+            const s = getSafeRandomSpawn(room.walls); 
+            
+            room.players[botId] = {
+                id: botId, name: botName, team: 'red', slot: i,
+                x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
+                hp: 100, cooldown: 0, 
+                isBot: true, level: aiLevel, targetMove: 0
+            };
         }
+        console.log(`🤖 專屬練習房 [${PR_ID}] 啟動，生成 ${data.botCount} 個 AI (等級 ${aiLevel})`);
+        
+        // 啟動物理迴圈
+        startLoop(PR_ID);
 
+        // 4. 加入玩家自己
         room.players[data.id] = {
             id: data.id, name: data.name,
             team: 'blue', slot: Object.keys(room.players).length,
