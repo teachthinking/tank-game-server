@@ -549,9 +549,13 @@ io.on('connection', (socket) => {
             room.timeLeft = 300; 
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
-
             console.log(`⚔️ 學生對戰房 [${data.roomId}] 啟動`);
             startLoop(data.roomId); 
+        }
+
+        // ⚠️ 防呆檢查：如果 ID 重複，在終端機大聲警告！
+        if (room.players[data.id]) {
+            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！後來的玩家已覆蓋前者。請檢查前端 myId 是否為亂數！`);
         }
 
         const s = getSpawn(data.team, data.slot);
@@ -568,16 +572,16 @@ io.on('connection', (socket) => {
         socket.join(data.roomId);
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
-        console.log(`👤 ${data.name} 加入學生對戰房 [${data.roomId}]`);
+        
+        // 📊 統計目前人數
+        const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
+        console.log(`👤 ${data.name} 加入 PvP 房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
     });
 
-    // 🌟 新增：學生組團對抗電腦 (PvE 合作模式)
-    // 🌟 新增：學生組團對抗電腦 (PvE 合作模式)
     socket.on('joinCoop', (data) => {
         const room = getRoom(data.roomId);
 
         if (!room.active) {
-            // ... (原本產生 AI 的邏輯不動) ...
             room.active = true;
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             room.timeLeft = 300; 
@@ -589,43 +593,39 @@ io.on('connection', (socket) => {
                 let botId = 'bot_' + Math.random().toString(36).substr(2, 6); 
                 let botName = '電腦_' + Math.floor(Math.random() * 1000); 
                 const s = getSafeRandomSpawn(room.walls); 
-                
                 room.players[botId] = {
                     id: botId, name: botName, team: 'red', slot: i,
                     x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
-                    hp: 100, cooldown: 0, 
-                    isBot: true, level: 2, targetMove: 0
+                    hp: 100, cooldown: 0, isBot: true, level: 2, targetMove: 0
                 };
             }
             console.log(`🤝 合作房 [${data.roomId}] 創立，生成 ${botCount} 個 AI`);
             startLoop(data.roomId); 
         }
 
-        // 🌟 關鍵修正 1：強制使用 Socket.io 配發的唯一 ID！
-        // 不要相信前端傳來的 data.id，因為同一個瀏覽器開兩頁可能傳一樣的 ID
-        const myUniqueId = socket.id; 
+        // ⚠️ 防呆檢查：如果 ID 重複，在終端機大聲警告！
+        if (room.players[data.id]) {
+            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！後來的玩家已覆蓋前者。請檢查前端 myId 是否為亂數！`);
+        }
 
-        // 🌟 真人玩家加入 (全部強制設定為 Blue 隊)
         const s = getSafeRandomSpawn(room.walls); 
-        
-        // 🌟 關鍵修正 2：用 myUniqueId 當作玩家的 Key 和 id
-        room.players[myUniqueId] = {
-            id: myUniqueId,     
-            name: data.name,    // 名字還是可以用學生輸入的
-            team: 'blue', 
+        room.players[data.id] = {
+            id: data.id, name: data.name, team: 'blue', 
             slot: Object.keys(room.players).length,
             x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
             hp: 100, cooldown: 0, isBot: false
         };
 
-        // 🌟 關鍵修正 3：將 socket 的綁定也改成 myUniqueId
-        socket.playerId = myUniqueId;
+        socket.playerId = data.id;
         socket.roomId = data.roomId;
 
         socket.join(data.roomId);
         socket.emit('map', { walls: room.walls });
         io.to(data.roomId).emit('state', buildState(room));
-        console.log(`👤 ${data.name} (${myUniqueId}) 加入合作對戰房 [${data.roomId}]`);
+        
+        // 📊 統計目前人數
+        const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
+        console.log(`👤 ${data.name} 加入合作房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
     });
 });
 
