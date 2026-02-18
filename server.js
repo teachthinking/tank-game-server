@@ -607,7 +607,7 @@ io.on('connection', (socket) => {
 
         // 根據不同動作，限制最大值與最小值 (數值可依你的遊戲平衡調整)
         if (data.action === 'move') {
-            val = Math.max(-1000, Math.min(800, val));
+            val = Math.max(-1000, Math.min(1000, val));
             //val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
         } else if (data.action === 'turn') {
             val = Math.max(-360, Math.min(360, val));
