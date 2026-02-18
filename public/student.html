@@ -327,7 +327,7 @@
             <div class="mode-selector">
                 <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫
                     老師開戰場</label>
-                <label><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 單人/合作打王</label>
+                <label><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 單人/合作打AI</label>
                 <label><input type="radio" name="gameMode" value="pvp" onchange="toggleMode()"> ⚔️ 學生對戰</label>
             </div>
 
@@ -895,7 +895,51 @@
                 ctx.restore();
             }
         }
+// ==========================================
+// 🌟 新增：學生端地圖選單自動更新
+// ==========================================
+async function loadStudentMapMenu() {
+    try {
+        // 👇 請換成與 server.js 相同的 GitHub Raw 連結
+        const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json';
+        
+        const res = await fetch(url);
+        if (res.ok) {
+            const externalMaps = await res.json();
+            
+            // 要更新的兩個選單 ID (練習模式 & 對戰模式)
+            const targets = ['practiceMap', 'pvpMap'];
 
+            targets.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+
+                // 遍歷下載到的地圖
+                for (let mapKey in externalMaps) {
+                    // 檢查選單內是否已有此地圖 (避免重複)
+                    let exists = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === mapKey) exists = true;
+                    }
+
+                    // 如果沒有，就加進去
+                    if (!exists) {
+                        let opt = document.createElement('option');
+                        opt.value = mapKey;       // 這是傳給 Server 的 key
+                        opt.innerHTML = "🌐 " + mapKey; // 這是顯示給學生看的名稱
+                        select.appendChild(opt);
+                    }
+                }
+            });
+            console.log("✅ 學生端地圖選單已同步 GitHub");
+        }
+    } catch (e) {
+        console.error("無法載入外部地圖清單", e);
+    }
+}
+
+// 當畫面載入完成後，執行抓取
+window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
         // --- 連線系統 ---
 
         function connectSystem() {
