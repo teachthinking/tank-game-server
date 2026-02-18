@@ -121,7 +121,7 @@ let PRESET_MAPS = {
 async function loadExternalMaps() {
     try {
         // 請將以下網址替換為您的 GitHub Raw 連結
-        const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json';
+      const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json?t=' + Date.now();
 
         console.log('⏳ 正在從 GitHub 載入外部地圖...');
         const response = await fetch(url);
