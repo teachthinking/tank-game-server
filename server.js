@@ -594,8 +594,8 @@ io.on('connection', (socket) => {
         // ==========================================
         const now = Date.now();
         // 如果是第一次發送 (lastCmdTime 不存在)，視為 0
-        if (now - (player.lastCmdTime || 0) < 400) {
-            return; // 拒絕處理：距離上次指令不到 0.4 秒 (400ms)，判定為外掛狂按或網路異常
+        if (now - (player.lastCmdTime || 0) < 10) {
+            return; // 拒絕處理：距離上次指令不到 0.01 秒 (10ms)，判定為外掛狂按或網路異常
         }
         player.lastCmdTime = now; // 記錄這次成功指令的時間
 
@@ -607,9 +607,10 @@ io.on('connection', (socket) => {
 
         // 根據不同動作，限制最大值與最小值 (數值可依你的遊戲平衡調整)
         if (data.action === 'move') {
-            val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
+            val = Math.max(-1000, Math.min(800, val));
+            //val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
         } else if (data.action === 'turn') {
-            val = Math.max(-15, Math.min(15, val)); // 限制轉向最大只能傳 15 度
+            val = Math.max(-360, Math.min(360, val));
         }
 
         // ==========================================
