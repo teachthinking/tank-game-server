@@ -105,7 +105,7 @@
         }
 
         #game-wrapper {
-            width: 600px;
+            width: 800px;
             display: flex;
             flex-direction: column;
             background: #111;
@@ -115,7 +115,7 @@
 
         #gameCanvas {
             background: #1a1a1a;
-            width: 600px;
+            width: 800px;
             height: 600px;
         }
 
@@ -193,132 +193,215 @@
             color: #fff !important;
             font-family: "Microsoft JhengHei", sans-serif;
         }
+
+        #loginPanel {
+            background: rgba(40, 40, 40, 0.95);
+            padding: 15px 20px;
+            border: 2px solid #666;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            color: #eee;
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .form-row label {
+            flex: 0 0 75px;
+            /* 固定標籤寬度 */
+            text-align: right;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .form-row input[type="text"],
+        .form-row select {
+            flex: 1;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #222;
+            color: #fff;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .form-group-half {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .form-group-half .half {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-group-half .half label {
+            margin-right: 5px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            background: #333;
+            padding: 6px;
+            border-radius: 5px;
+        }
+
+        /* 加入手動模式按鈕顏色 */
+        .btn-manual {
+            background: #9c27b0;
+            /* 紫色 */
+            color: white;
+        }
+
+        .btn-manual.active {
+            background: #e91e63;
+            /* 啟動後變粉紅色 */
+            box-shadow: 0 0 10px #e91e63;
+        }
+
+        /* 彈出視窗背景 */
+        .modal-overlay {
+            display: none;
+            /* 預設隱藏 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 彈出視窗本體 */
+        .modal-content {
+            background: #fff;
+            color: #333;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .modal-content ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .modal-content li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* =========================================================
+           📱 響應式設計 (RWD) - 手機與平板模式
+           當螢幕寬度小於 1000px 時觸發
+           ========================================================= */
+        @media screen and (max-width: 1000px) {
+
+            /* 1. 將左右並排改為上下堆疊 */
+            #main-area {
+                flex-direction: column-reverse;
+                /* 反轉順序：讓地圖在上，Blockly 在下 */
+                overflow-y: auto;
+                /* 允許整個畫面上下滾動 */
+            }
+
+            /* 2. 地圖區塊設定 */
+            #game-wrapper {
+                width: 100%;
+                /* 寬度撐滿螢幕 */
+                border-left: none;
+                border-bottom: 2px solid #444;
+                /* 為了保持比例，我們使用 CSS 變形來縮小 Canvas */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #000;
+                overflow: hidden;
+                /* 防止縮放後超出邊界 */
+            }
+
+            /* 3. 讓 Canvas 自動縮放適應螢幕寬度，但保持 800x600 比例 */
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+                /* 讓高度按比例自動縮放 */
+                max-width: 800px;
+                /* 最大不超過原始尺寸 */
+                aspect-ratio: 800 / 600;
+                /* 強制保持比例 (現代瀏覽器支援) */
+            }
+
+            /* 4. 程式編輯區 (Blockly) 設定 */
+            #blocklyDiv {
+                width: 100%;
+                min-height: 500px;
+                /* 給予 Blockly 足夠的操作高度 */
+                border-right: none;
+            }
+
+            /* 5. 終端機 Console 也調整一下高度 */
+            #console {
+                min-height: 100px;
+                max-height: 150px;
+            }
+
+            /* --- 🎨 順便優化上方選單列，讓手機看不會擠在一起 --- */
+            header {
+                flex-direction: column;
+                height: auto;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .score-board {
+                width: 100%;
+                justify-content: center;
+                box-sizing: border-box;
+            }
+
+            #controls {
+                width: 100%;
+                flex-wrap: wrap;
+                /* 允許按鈕換行 */
+                justify-content: center;
+            }
+
+            #controls button {
+                flex: 1 1 auto;
+                /* 讓按鈕自動填滿空間 */
+                font-size: 0.85rem;
+                padding: 8px 5px;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div id="overlay">
-        <style>
-            #loginPanel {
-                background: rgba(40, 40, 40, 0.95);
-                padding: 15px 20px;
-                border: 2px solid #666;
-                border-radius: 8px;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-                color: #eee;
-            }
 
-            .form-row {
-                display: flex;
-                align-items: center;
-                margin-bottom: 8px;
-            }
-
-            .form-row label {
-                flex: 0 0 75px;
-                /* 固定標籤寬度 */
-                text-align: right;
-                margin-right: 10px;
-                font-size: 0.9rem;
-            }
-
-            .form-row input[type="text"],
-            .form-row select {
-                flex: 1;
-                padding: 4px 6px;
-                border-radius: 4px;
-                border: 1px solid #555;
-                background: #222;
-                color: #fff;
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .form-group-half {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 8px;
-            }
-
-            .form-group-half .half {
-                flex: 1;
-                display: flex;
-                align-items: center;
-            }
-
-            .form-group-half .half label {
-                margin-right: 5px;
-                font-size: 0.85rem;
-                white-space: nowrap;
-            }
-
-            .mode-selector {
-                display: flex;
-                justify-content: center;
-                gap: 10px;
-                margin-bottom: 12px;
-                font-size: 0.9rem;
-                background: #333;
-                padding: 6px;
-                border-radius: 5px;
-            }
-
-            /* 加入手動模式按鈕顏色 */
-            .btn-manual {
-                background: #9c27b0;
-                /* 紫色 */
-                color: white;
-            }
-
-            .btn-manual.active {
-                background: #e91e63;
-                /* 啟動後變粉紅色 */
-                box-shadow: 0 0 10px #e91e63;
-            }
-
-            /* 彈出視窗背景 */
-            .modal-overlay {
-                display: none;
-                /* 預設隱藏 */
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.7);
-                z-index: 1000;
-                justify-content: center;
-                align-items: center;
-            }
-
-            /* 彈出視窗本體 */
-            .modal-content {
-                background: #fff;
-                color: #333;
-                padding: 25px;
-                border-radius: 12px;
-                max-width: 450px;
-                width: 90%;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-                text-align: center;
-            }
-
-            .modal-content ul {
-                list-style-type: none;
-                padding-left: 0;
-            }
-
-            .modal-content li {
-                margin-bottom: 8px;
-            }
-
-            code {
-                background: #eee;
-                padding: 2px 5px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-        </style>
 
         <div class="panel" id="loginPanel"
             style="position: absolute; top: 15%; left: 50%; transform: translateX(-50%); z-index: 1000; width: 380px;">
@@ -343,7 +426,7 @@
             <div id="classOptions">
                 <div class="form-row">
                     <label>戰場編號</label>
-                    <input type="text" id="roomId" value="1234">
+                    <input type="text" id="roomId" value="101">
                 </div>
                 <div class="form-group-half">
                     <div class="half">
@@ -488,15 +571,14 @@
     <div id="main-area">
         <div id="blocklyDiv"></div>
         <div id="game-wrapper">
-            <canvas id="gameCanvas" width="600" height="600"></canvas>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
             <div id="console"></div>
         </div>
     </div>
 
     <xml id="toolbox" style="display: none">
-        <category name="⚔️ 戰鬥感測" colour="0">
-            <block type="tank_fire"></block>
-            <block type="tank_is_bullet_incoming"></block>
+        <category name="⚔️ 感測" colour="0">
+                        <block type="tank_is_bullet_incoming"></block>
             <block type="tank_scan_bullet_dist"></block>
             <block type="tank_scan_bullet_angle"></block>
             <block type="tank_scan_wall"></block>
@@ -506,11 +588,12 @@
             <block type="tank_get_enemy_count"></block>
             <block type="tank_get_hp"></block>
         </category>
-        <category name="📍 導航定位" colour="190">
+        <category name="📍 定位" colour="190">
             <block type="tank_get_x"></block>
             <block type="tank_get_y"></block>
         </category>
-        <category name="🚜 移動控制" colour="210">
+        <category name="🚜 控制" colour="210">
+            <block type="tank_fire"></block>
             <block type="tank_move"></block>
             <block type="tank_move_back"></block>
             <block type="tank_turn">
@@ -805,7 +888,7 @@
         }
 
         // --- 全域變數設定 ---
-        const CANVAS_W = 600; const CANVAS_H = 600;
+        const CANVAS_W = 800; const CANVAS_H = 600;
         const ctx = document.getElementById('gameCanvas').getContext('2d');
 
         let workspace = null;
@@ -895,51 +978,51 @@
                 ctx.restore();
             }
         }
-// ==========================================
-// 🌟 新增：學生端地圖選單自動更新
-// ==========================================
-async function loadStudentMapMenu() {
-    try {
-        // 👇 請換成與 server.js 相同的 GitHub Raw 連結
-        const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json';
-        
-        const res = await fetch(url);
-        if (res.ok) {
-            const externalMaps = await res.json();
-            
-            // 要更新的兩個選單 ID (練習模式 & 對戰模式)
-            const targets = ['practiceMap', 'pvpMap'];
+        // ==========================================
+        // 🌟 新增：學生端地圖選單自動更新
+        // ==========================================
+        async function loadStudentMapMenu() {
+            try {
+                // 👇 請換成與 server.js 相同的 GitHub Raw 連結
+                const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json';
 
-            targets.forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const externalMaps = await res.json();
 
-                // 遍歷下載到的地圖
-                for (let mapKey in externalMaps) {
-                    // 檢查選單內是否已有此地圖 (避免重複)
-                    let exists = false;
-                    for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === mapKey) exists = true;
-                    }
+                    // 要更新的兩個選單 ID (練習模式 & 對戰模式)
+                    const targets = ['practiceMap', 'pvpMap'];
 
-                    // 如果沒有，就加進去
-                    if (!exists) {
-                        let opt = document.createElement('option');
-                        opt.value = mapKey;       // 這是傳給 Server 的 key
-                        opt.innerHTML = "🌐 " + mapKey; // 這是顯示給學生看的名稱
-                        select.appendChild(opt);
-                    }
+                    targets.forEach(id => {
+                        const select = document.getElementById(id);
+                        if (!select) return;
+
+                        // 遍歷下載到的地圖
+                        for (let mapKey in externalMaps) {
+                            // 檢查選單內是否已有此地圖 (避免重複)
+                            let exists = false;
+                            for (let i = 0; i < select.options.length; i++) {
+                                if (select.options[i].value === mapKey) exists = true;
+                            }
+
+                            // 如果沒有，就加進去
+                            if (!exists) {
+                                let opt = document.createElement('option');
+                                opt.value = mapKey;       // 這是傳給 Server 的 key
+                                opt.innerHTML = "🌐 " + mapKey; // 這是顯示給學生看的名稱
+                                select.appendChild(opt);
+                            }
+                        }
+                    });
+                    console.log("✅ 學生端地圖選單已同步 GitHub");
                 }
-            });
-            console.log("✅ 學生端地圖選單已同步 GitHub");
+            } catch (e) {
+                console.error("無法載入外部地圖清單", e);
+            }
         }
-    } catch (e) {
-        console.error("無法載入外部地圖清單", e);
-    }
-}
 
-// 當畫面載入完成後，執行抓取
-window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
+        // 當畫面載入完成後，執行抓取
+        window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
         // --- 連線系統 ---
 
         function connectSystem() {
@@ -1005,7 +1088,9 @@ window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
 
                 // 接收地圖
                 socket.on('map', (data) => {
-                    if (data && data.walls) walls = data.walls;
+                    walls = data.walls || [];
+                    console.log("🗺️ 收到教師地圖，牆壁數量:", walls.length);
+                    
                 });
 
                 // 接收 Server 算好的遊戲狀態
@@ -1072,7 +1157,7 @@ window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
             socket.emit('cmd', { roomId, id: myId, action, val });
         }
 
-  
+
 
         // --- Blockly 初始化 ---
         window.onload = function () {
@@ -1084,32 +1169,63 @@ window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
 
         function defineBlocks() {
 
+            // 🚀 坦克前進 (可自訂步數)
             Blockly.Blocks['tank_move'] = {
                 init: function () {
                     this.jsonInit({
-                        "message0": "🚀 坦克前進",
+                        "message0": "🚀 坦克前進 %1 步",
+                        "args0": [
+                            {
+                                "type": "field_number",
+                                "name": "STEPS",
+                                "value": 50,       // 預設給學生 50 步
+                                "min": 1,          // 最小 1 步
+                                "max": 1000        // 最大 1000 步
+                            }
+                        ],
                         "previousStatement": null,
                         "nextStatement": null,
                         "colour": 210
                     });
                 }
             };
-            // 🎯 修正：對戰版必須使用 apiCmd('move', 20)
-            Blockly.JavaScript.forBlock['tank_move'] = () => `apiCmd('move', 20);\n`;
+            
+            // 產生對應的 JS 程式碼 (抓取學生輸入的數字)
+            Blockly.JavaScript.forBlock['tank_move'] = function(block) {
+                let steps = block.getFieldValue('STEPS');
+                return `apiCmd('move', ${steps});\n`;
+            };
 
-            // 🔙 坦克後退 (固定 20 步)
+            // 🔙 坦克後退 (可自訂步數)
             Blockly.Blocks['tank_move_back'] = {
                 init: function () {
                     this.jsonInit({
-                        "message0": "🔙 坦克後退",
+                        "message0": "🔙 坦克後退 %1 步",
+                        "args0": [
+                            {
+                                "type": "field_number",
+                                "name": "STEPS",
+                                "value": 50,       // 預設 50 步
+                                "min": 1,
+                                "max": 1000
+                            }
+                        ],
                         "previousStatement": null,
                         "nextStatement": null,
                         "colour": 210
                     });
                 }
             };
-            // 🎯 修正：對戰版使用 apiCmd('move_back', 20)
-            Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\n`;
+            
+            // 產生對應的 JS 程式碼 (抓取學生輸入的數字)
+            Blockly.JavaScript.forBlock['tank_move_back'] = function(block) {
+                let steps = block.getFieldValue('STEPS');
+                // 注意：這裡維持您原本的 'move_back' 指令名稱
+                return `apiCmd('move_back', ${steps});\n`; 
+                
+                // 💡 小提示：如果您的 apiCmd 裡面是把 move_back 轉成負數的 move，
+                // 例如 sendCmd('move', -val)，那這樣寫完全沒問題！
+            };
             // 🔄 轉向
             Blockly.Blocks['tank_turn'] = { init: function () { this.jsonInit({ "message0": "🔄 右轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
             Blockly.JavaScript.forBlock['tank_turn'] = b => `apiCmd('turn', ${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
@@ -1228,7 +1344,7 @@ window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
                 }
 
                 if (type === 'tank_scan_wall') {
-                    const maxDist = 600;
+                    const maxDist = 1000;
                     let rad = me.angle * Math.PI / 180;
                     let dx = Math.cos(rad), dy = Math.sin(rad);
                     for (let d = 0; d < maxDist; d += 10) {
