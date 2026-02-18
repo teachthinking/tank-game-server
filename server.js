@@ -1,834 +1,1389 @@
-// server.js - 坦克大戰伺服器【Server 端物理計算版】
-// 所有物理運算在此執行，老師端只做地圖編輯與控制，學生端只做渲染
-//    Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chang
-//    本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜ © 2026 張世杰 (teachthinking@gmail.com")
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
+<!DOCTYPE html>
+<html>
 
-// 加上 methods 允許跨網域連線
-const io = require('socket.io')(http, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
+<head>
+    <meta charset="utf-8">
+    <title>🛡️ 坦克戰術指揮部: 學員終端</title>
+    <script src="https://unpkg.com/blockly@10.0.0/blockly_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/blocks_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@10.0.0/msg/zh-hant.js"></script>
+    <script src="https://unpkg.com/acorn@8.11.3/dist/acorn.js"></script>
+    <script src="https://unpkg.com/js-interpreter@5.0.0/lib/js-interpreter.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
-app.use(express.static(__dirname + '/public'));
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background: #222;
+            color: #eee;
+            overflow: hidden;
+        }
 
-// ============================================================
-//  常數（與前端保持一致）
-// ============================================================
-const CANVAS_W = 600;
-const CANVAS_H = 600;
-const BULLET_SPEED = 8;
-const BULLET_RANGE = 180;
-const TANK_RADIUS = 12;
-const BULLET_RADIUS = 4;
-const HIT_RADIUS = 15;
-const COOLDOWN_TICKS = 15;    // 開火冷卻 tick 數
-const RESPAWN_MS = 3000;  // 重生延遲 ms
-const TICK_MS = 50;    // 物理迴圈間隔 (20 fps 邏輯)
+        header {
+            background: #333;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #555;
+            height: 50px;
+        }
 
-// ============================================================
-//  預設地圖資料 (用於練習模式)
-// ============================================================
-let PRESET_MAPS = {
-    'map1': [
-        { "x": 320, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 280, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 240, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 280, "y": 160, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 240, "y": 200, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 200, "y": 240, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 360, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 40, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 360, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 440, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 480, "y": 400, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 520, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 480, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 520, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 480, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 440, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 400, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 480, "y": 200, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 480, "y": 240, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 520, "y": 200, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 520, "y": 240, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 280, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 280, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 240, "y": 360, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 240, "y": 320, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 120, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 560, "y": 80, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 160, "y": 480, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 160, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 200, "y": 440, "w": 40, "h": 40, "emoji": "🌲" },
-        { "x": 200, "y": 480, "w": 40, "h": 40, "emoji": "🌲" }
-    ],
-    'map2': [
-        { "x": 560, "y": 440, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 560, "y": 480, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 520, "y": 440, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 440, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 160, "y": 80, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 160, "y": 120, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 200, "y": 120, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 240, "y": 120, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 280, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 360, "y": 280, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 280, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 440, "y": 280, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 280, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 240, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 200, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 320, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 400, "y": 360, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 0, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 40, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 80, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 560, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 520, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 480, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 240, "y": 400, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 280, "y": 400, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 520, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 560, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 560, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 480, "y": 160, "w": 40, "h": 40, "emoji": "🧱" },
-        { "x": 320, "y": 400, "w": 40, "h": 40, "emoji": "🧱" }
-    ]
-};
-//===========================================================
-//  🌟 新增：從 GitHub 載入外部地圖的函數
-// ============================================================
-async function loadExternalMaps() {
+        .score-board {
+            display: flex;
+            gap: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: #000;
+            padding: 5px 20px;
+            border-radius: 5px;
+            border: 1px solid #666;
+        }
+
+        .score-red {
+            color: #ff5252;
+        }
+
+        .score-blue {
+            color: #448aff;
+        }
+
+        .timer {
+            color: #ffeb3b;
+            font-family: monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-run {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-file {
+            background: #2196f3;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        #main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #blocklyDiv {
+            flex: 1;
+            border-right: 2px solid #444;
+        }
+
+        #game-wrapper {
+            width: 800px;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            border-left: 2px solid #444;
+            position: relative;
+        }
+
+        #gameCanvas {
+            background: #1a1a1a;
+            width: 800px;
+            height: 600px;
+        }
+
+        #console {
+            flex: 1;
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            border-top: 1px solid #333;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .panel {
+            background: #2c3e50;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #34495e;
+            width: 450px;
+            color: white;
+        }
+
+        .panel input,
+        .panel select {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .panel button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            background: #27ae60;
+            color: white;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        footer {
+            font-size: 11px;
+            color: #dbd3df;
+            text-align: center;
+            padding: 5px;
+            background: #31444e;
+            border-top: 1px solid #0f4c75;
+        }
+
+        .blocklyToolboxDiv {
+            background-color: #1b262c !important;
+        }
+
+        .blocklyTreeLabel {
+            color: #fff !important;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="overlay">
+        <style>
+            #loginPanel {
+                background: rgba(40, 40, 40, 0.95);
+                padding: 15px 20px;
+                border: 2px solid #666;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+                color: #eee;
+            }
+
+            .form-row {
+                display: flex;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+
+            .form-row label {
+                flex: 0 0 75px;
+                /* 固定標籤寬度 */
+                text-align: right;
+                margin-right: 10px;
+                font-size: 0.9rem;
+            }
+
+            .form-row input[type="text"],
+            .form-row select {
+                flex: 1;
+                padding: 4px 6px;
+                border-radius: 4px;
+                border: 1px solid #555;
+                background: #222;
+                color: #fff;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .form-group-half {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+
+            .form-group-half .half {
+                flex: 1;
+                display: flex;
+                align-items: center;
+            }
+
+            .form-group-half .half label {
+                margin-right: 5px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            .mode-selector {
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                font-size: 0.9rem;
+                background: #333;
+                padding: 6px;
+                border-radius: 5px;
+            }
+
+            /* 加入手動模式按鈕顏色 */
+            .btn-manual {
+                background: #9c27b0;
+                /* 紫色 */
+                color: white;
+            }
+
+            .btn-manual.active {
+                background: #e91e63;
+                /* 啟動後變粉紅色 */
+                box-shadow: 0 0 10px #e91e63;
+            }
+
+            /* 彈出視窗背景 */
+            .modal-overlay {
+                display: none;
+                /* 預設隱藏 */
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+            }
+
+            /* 彈出視窗本體 */
+            .modal-content {
+                background: #fff;
+                color: #333;
+                padding: 25px;
+                border-radius: 12px;
+                max-width: 450px;
+                width: 90%;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+                text-align: center;
+            }
+
+            .modal-content ul {
+                list-style-type: none;
+                padding-left: 0;
+            }
+
+            .modal-content li {
+                margin-bottom: 8px;
+            }
+
+            code {
+                background: #eee;
+                padding: 2px 5px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+        </style>
+
+        <div class="panel" id="loginPanel"
+            style="position: absolute; top: 15%; left: 50%; transform: translateX(-50%); z-index: 1000; width: 380px;">
+            <h2 style="text-align: center; margin: 0 0 12px 0; font-size: 1.3rem;">🎮 進入前線基地</h2>
+
+            <div class="mode-selector">
+                <label><input type="radio" name="gameMode" value="class" checked onchange="toggleMode()"> 👨‍🏫
+                    老師開戰場</label>
+                <label><input type="radio" name="gameMode" value="practice" onchange="toggleMode()"> 🤖 單人/合作打AI</label>
+                <label><input type="radio" name="gameMode" value="pvp" onchange="toggleMode()"> ⚔️ 學生對戰</label>
+            </div>
+
+            <div class="form-row">
+                <label>伺服器</label>
+                <input type="text" id="serverUrl" value="https://tank-game-server-2iwf.onrender.com">
+            </div>
+            <div class="form-row" style="margin-bottom: 15px;">
+                <label>指揮官</label>
+                <input type="text" id="playerName" placeholder="輸入你的名字" value="學生A">
+            </div>
+
+            <div id="classOptions">
+                <div class="form-row">
+                    <label>戰場編號</label>
+                    <input type="text" id="roomId" value="1234">
+                </div>
+                <div class="form-group-half">
+                    <div class="half">
+                        <label>隊伍</label>
+                        <select id="team">
+                            <option value="red">🔴 紅</option>
+                            <option value="blue">🔵 藍</option>
+                        </select>
+                    </div>
+                    <div class="half">
+                        <label>出生點</label>
+                        <select id="slot">
+                            <option value="1">位置 1</option>
+                            <option value="2">位置 2</option>
+                            <option value="3">位置 3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="practiceOptions" style="display: none;">
+                <div class="form-row">
+                    <label>戰場編號</label>
+                    <input type="text" id="practiceRoomId" value="coop_1" placeholder="與同學輸入相同戰場編號即可組隊">
+                </div>
+                <div class="form-row">
+                    <label>選擇地圖</label>
+                    <select id="practiceMap">
+                        <option value="map1">🌲 森林大亂鬥</option>
+                        <option value="map2">🧱 迷宮訓練場</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>AI 數量 (僅隊長設定有效)</label>
+                    <select id="botCount">
+                        <option value="1">1 隻 (新手)</option>
+                        <option value="3">3 隻 (挑戰)</option>
+                        <option value="5">5 隻 (地獄)</option>
+                        <option value="10">10 隻 (夢魘)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="pvpOptions" style="display: none;">
+                <div class="form-row">
+                    <label>戰場編號</label>
+                    <input type="text" id="pvpRoomId" value="999" placeholder="與對手輸入相同數字">
+                </div>
+                <div class="form-row">
+                    <label>地圖</label>
+                    <select id="pvpMap">
+                        <option value="map1">🌲 森林大亂鬥</option>
+                        <option value="map2">🧱 迷宮訓練場</option>
+                    </select>
+                </div>
+                <div class="form-group-half">
+                    <div class="half">
+                        <label>隊伍</label>
+                        <select id="pvpTeam">
+                            <option value="red">🔴 紅隊</option>
+                            <option value="blue">🔵 藍隊</option>
+                        </select>
+                    </div>
+                    <div class="half">
+                        <label>出生點</label>
+                        <select id="pvpSlot">
+                            <option value="1">位置 1</option>
+                            <option value="2">位置 2</option>
+                            <option value="3">位置 3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="connectSystem()"
+                style="width: 100%; margin-top: 10px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">🚀
+                啟動連線</button>
+        </div>
+        <script>
+            function toggleMode() {
+                const mode = document.querySelector('input[name="gameMode"]:checked').value;
+                document.getElementById('classOptions').style.display = mode === 'class' ? 'block' : 'none';
+                document.getElementById('practiceOptions').style.display = mode === 'practice' ? 'block' : 'none';
+                document.getElementById('pvpOptions').style.display = mode === 'pvp' ? 'block' : 'none';
+            }
+        </script>
+    </div>
+
+    <header>
+        <div class="score-board">
+            <span class="score-red">RED: <span id="scoreRed">0</span></span>
+            <span>|</span>
+            <span class="timer" id="timerDisplay">00:00</span>
+            <span>|</span>
+            <span class="score-blue">BLUE: <span id="scoreBlue">0</span></span>
+        </div>
+        <div id="controls">
+            <span id="statusText" style="margin-right:15px; font-size:0.9rem; color:#aaa;">未連線</span>
+            <button id="manualBtn" class="btn-manual" onclick="toggleManualMode()">🕹️ 手動模式: 關</button>
+            <button class="btn-file" onclick="saveCode()">💾 存檔</button>
+            <button class="btn-file" onclick="document.getElementById('fileInput').click()">📂 讀檔</button>
+            <input type="file" id="fileInput" accept=".json,.xml" onchange="loadCodeFromFile(this)">
+            <button class="btn-run" onclick="runCode()">▶️ 啟動 AI</button>
+            <button class="btn-stop" onclick="stopCode()">⏹️ 停止</button>
+        </div>
+        <button class="btn-file" onclick="openHelp()" style="background:#555;">❓ 幫助</button>
+        </div>
+        <div id="helpModal" class="modal-overlay">
+            <div class="modal-content">
+                <h2 style="color:#4caf50; margin-top:0;">🎮 坦克戰術指揮部：操作指引</h2>
+                <hr>
+                <div style="text-align: left; padding: 10px;">
+                    <strong>🤖 AI 模式：</strong>
+                    <ul>
+                        <li>使用 Blockly 積木編寫邏輯。</li>
+                        <li>點擊「▶️ 啟動 AI」進行自動化對戰。</li>
+                    </ul>
+                    <strong>🕹️ 手動模式：</strong>
+                    <ul>
+                        <li>切換至「手動模式: 開」以接管控制。</li>
+                        <li>移動：<code>W</code> / <code>S</code> 或 <code>↑</code> / <code>↓</code></li>
+                        <li>轉向：<code>A</code> / <code>D</code> 或 <code>←</code> / <code>→</code></li>
+                        <li><strong>發射砲彈：<code>空白鍵 (Space)</code></strong></li>
+                    </ul>
+                </div>
+                <div id="side-panel">
+
+                    <div class="contact-box">
+                        <h4>📞 聯絡資訊</h4>
+                        <p style="font-size: 1.1rem; font-weight: bold; color: #0d47a1; margin:0;">張世杰老師</p>
+                        <p style="margin: 5px 0; font-size:0.85rem;">授權與教學合作：<br>
+                            <a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn-run" onclick="closeHelp()" style="width:100%; margin-top:10px;">我知道了</button>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="main-area">
+        <div id="blocklyDiv"></div>
+        <div id="game-wrapper">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div id="console"></div>
+        </div>
+    </div>
+
+    <xml id="toolbox" style="display: none">
+        <category name="⚔️ 戰鬥感測" colour="0">
+            <block type="tank_fire"></block>
+            <block type="tank_is_bullet_incoming"></block>
+            <block type="tank_scan_bullet_dist"></block>
+            <block type="tank_scan_bullet_angle"></block>
+            <block type="tank_scan_wall"></block>
+            <block type="tank_shot_blocked"></block>
+            <block type="tank_scan_enemy"></block>
+            <block type="tank_scan_angle"></block>
+            <block type="tank_get_enemy_count"></block>
+            <block type="tank_get_hp"></block>
+        </category>
+        <category name="📍 導航定位" colour="190">
+            <block type="tank_get_x"></block>
+            <block type="tank_get_y"></block>
+        </category>
+        <category name="🚜 移動控制" colour="210">
+            <block type="tank_move"></block>
+            <block type="tank_move_back"></block>
+            <block type="tank_turn">
+                <value name="DEG">
+                    <shadow type="math_number">
+                        <field name="NUM">90</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="tank_turn_left">
+                <value name="DEG">
+                    <shadow type="math_number">
+                        <field name="NUM">90</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="tank_stop"></block>
+        </category>
+        <category name="🔀 邏輯" colour="210">
+            <block type="controls_if"></block>
+            <block type="logic_compare"></block>
+            <block type="logic_operation"></block>
+            <block type="logic_negate"></block>
+            <block type="logic_boolean"></block>
+            <block type="logic_null"></block>
+            <block type="logic_ternary"></block>
+        </category>
+
+        <category name="🔁 迴圈" colour="120">
+            <block type="controls_repeat_ext">
+                <value name="TIMES">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="controls_whileUntil"></block>
+            <block type="controls_for">
+                <value name="FROM">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="TO">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+                <value name="BY">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="controls_forEach"></block>
+            <block type="controls_flow_statements"></block>
+        </category>
+
+        <category name="🧮 運算" colour="230">
+            <block type="math_number">
+                <field name="NUM">123</field>
+            </block>
+            <block type="math_arithmetic">
+                <value name="A">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="B">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_single">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">9</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_trig">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">45</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_constant"></block>
+            <block type="math_number_property">
+                <value name="NUMBER_TO_CHECK">
+                    <shadow type="math_number">
+                        <field name="NUM">0</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_round">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">3.1</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_on_list"></block>
+            <block type="math_modulo">
+                <value name="DIVIDEND">
+                    <shadow type="math_number">
+                        <field name="NUM">64</field>
+                    </shadow>
+                </value>
+                <value name="DIVISOR">
+                    <shadow type="math_number">
+                        <field name="NUM">10</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_constrain">
+                <value name="VALUE">
+                    <shadow type="math_number">
+                        <field name="NUM">50</field>
+                    </shadow>
+                </value>
+                <value name="LOW">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="HIGH">
+                    <shadow type="math_number">
+                        <field name="NUM">100</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_random_int">
+                <value name="FROM">
+                    <shadow type="math_number">
+                        <field name="NUM">1</field>
+                    </shadow>
+                </value>
+                <value name="TO">
+                    <shadow type="math_number">
+                        <field name="NUM">100</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="math_random_float"></block>
+        </category>
+
+        <category name="📝 文字" colour="160">
+            <block type="text"></block>
+            <block type="text_join"></block>
+            <block type="text_append">
+                <value name="TEXT">
+                    <shadow type="text"></shadow>
+                </value>
+            </block>
+            <block type="text_length">
+                <value name="VALUE">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_isEmpty">
+                <value name="VALUE">
+                    <shadow type="text">
+                        <field name="TEXT"></field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_indexOf">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+                <value name="FIND">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_charAt">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+            </block>
+            <block type="text_getSubstring">
+                <value name="STRING">
+                    <block type="variables_get">
+                        <field name="VAR">text</field>
+                    </block>
+                </value>
+            </block>
+            <block type="text_changeCase">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_trim">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT"> abc </field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="text_print">
+                <value name="TEXT">
+                    <shadow type="text">
+                        <field name="TEXT">abc</field>
+                    </shadow>
+                </value>
+            </block>
+        </category>
+
+        <category name="📜 清單" colour="260">
+            <block type="lists_create_with">
+                <mutation items="0"></mutation>
+            </block>
+            <block type="lists_create_with"></block>
+            <block type="lists_repeat">
+                <value name="NUM">
+                    <shadow type="math_number">
+                        <field name="NUM">5</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="lists_length"></block>
+            <block type="lists_isEmpty"></block>
+            <block type="lists_indexOf">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_getIndex">
+                <value name="VALUE">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_setIndex">
+                <value name="LIST">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_getSublist">
+                <value name="LIST">
+                    <block type="variables_get">
+                        <field name="VAR">list</field>
+                    </block>
+                </value>
+            </block>
+            <block type="lists_split">
+                <value name="DELIM">
+                    <shadow type="text">
+                        <field name="TEXT">,</field>
+                    </shadow>
+                </value>
+            </block>
+            <block type="lists_sort"></block>
+        </category>
+        <category name="📦 變數" colour="330" custom="VARIABLE"></category>
+        <category name="ƒ 函式" colour="290" custom="PROCEDURE"></category>
+    </xml>
+
+    <script>
+        // 打開說明視窗
+        function openHelp() {
+            document.getElementById('helpModal').style.display = 'flex';
+        }
+
+        // 關閉說明視窗
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // 點擊背景也可以關閉
+        window.onclick = function (event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target == modal) {
+                closeHelp();
+            }
+        }
+
+        // --- 全域變數設定 ---
+        const CANVAS_W = 800; const CANVAS_H = 600;
+        const ctx = document.getElementById('gameCanvas').getContext('2d');
+
+        let workspace = null;
+        let interpreter = null;
+        let isRunning = false;
+        let isManualMode = false;
+
+        // 遊戲參數
+        let myId = "", myTeam = "red", mySlot = 0, roomId = "101";
+        let players = {}, bullets = [], walls = [];
+        let gameScores = { red: 0, blue: 0 }, gameTimeLeft = 0;
+        let socket;
+
+        // ★ 可在此調整動作速度 (毫秒) ★
+        const GAME_ACTION_DELAY = 500;
+
+        // --- 本地預測 ---
+        const BULLET_SPEED = 8;
+        let lastStateTime = 0;
+        let localBullets = [];
+        let localMe = null;   // 自己坦克的預測位置
+
+        // --- 60fps 獨立渲染迴圈 ---
+        let renderLoopStarted = false;
+        function startRenderLoop() {
+            if (renderLoopStarted) return;
+            renderLoopStarted = true;
+            function loop(now) { renderSmooth(now); requestAnimationFrame(loop); }
+            requestAnimationFrame(loop);
+        }
+
+        // --- 平滑渲染 ---
+        function renderSmooth(now) {
+            const elapsed = Math.min((now - lastStateTime) / 1000, 0.15);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // 牆壁
+            walls.forEach(w => {
+                let wx = Number(w.x), wy = Number(w.y), ww = Number(w.w), wh = Number(w.h);
+                ctx.save();
+                ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+                ctx.font = '26px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                for (let ex = wx + 20; ex < wx + ww; ex += 40)
+                    for (let ey = wy + 20; ey < wy + wh; ey += 40)
+                        ctx.fillText(w.emoji || '🧱', ex, ey);
+                ctx.restore();
+            });
+
+            // 子彈插值補算
+            localBullets.forEach(b => {
+                const rad = Number(b.angle) * Math.PI / 180;
+                const px = Number(b.x) + Math.cos(rad) * BULLET_SPEED * elapsed * 20;
+                const py = Number(b.y) + Math.sin(rad) * BULLET_SPEED * elapsed * 20;
+                ctx.fillStyle = b.team === 'red' ? '#ff6b6b' : '#74b9ff';
+                ctx.shadowColor = b.team === 'red' ? '#ff0000' : '#0000ff';
+                ctx.shadowBlur = 6;
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // 坦克
+            for (const id in players) {
+                const p = players[id];
+                if (p.hp <= 0) continue;
+                // 自己用本地預測位置，其他人用伺服器位置
+                let dx = Number(p.x), dy = Number(p.y), da = Number(p.angle);
+                if (id === myId && localMe) { dx = localMe.x; dy = localMe.y; da = localMe.angle; }
+                const php = Number(p.hp);
+                ctx.save(); ctx.translate(dx, dy);
+                if (id === myId) {
+                    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.stroke();
+                    ctx.fillStyle = '#FFD700'; ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center'; ctx.fillText('▼ YOU', 0, -45);
+                }
+                ctx.fillStyle = 'red'; ctx.fillRect(-15, -25, 30, 4);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(-15, -25, 30 * (php / 100), 4);
+                ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
+                ctx.textAlign = 'center'; ctx.fillText(p.name, 0, -30);
+                ctx.rotate(da * Math.PI / 180);
+                ctx.fillStyle = p.team === 'red' ? '#d32f2f' : '#1976d2';
+                ctx.fillRect(-12, -12, 24, 24);
+                if (id === myId) { ctx.strokeStyle = '#fff'; ctx.strokeRect(-12, -12, 24, 24); }
+                ctx.fillStyle = '#eee'; ctx.fillRect(0, -3, 20, 6);
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+// ==========================================
+// 🌟 新增：學生端地圖選單自動更新
+// ==========================================
+async function loadStudentMapMenu() {
     try {
-        // 請將以下網址替換為您的 GitHub Raw 連結
-      const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json?t=' + Date.now();
+        // 👇 請換成與 server.js 相同的 GitHub Raw 連結
+        const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/maps.json';
+        
+        const res = await fetch(url);
+        if (res.ok) {
+            const externalMaps = await res.json();
+            
+            // 要更新的兩個選單 ID (練習模式 & 對戰模式)
+            const targets = ['practiceMap', 'pvpMap'];
 
-        console.log('⏳ 正在從 GitHub 載入外部地圖...');
-        const response = await fetch(url);
+            targets.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
 
-        if (response.ok) {
-            const externalMaps = await response.json();
+                // 遍歷下載到的地圖
+                for (let mapKey in externalMaps) {
+                    // 檢查選單內是否已有此地圖 (避免重複)
+                    let exists = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === mapKey) exists = true;
+                    }
 
-            // 將外部地圖合併進原本的 PRESET_MAPS 中
-            // 這樣如果外部有 'map3'，就會加進來；如果有同名的 'map1'，則會覆蓋
-            PRESET_MAPS = { ...PRESET_MAPS, ...externalMaps };
-
-            console.log(`✅ 成功載入外部地圖！目前共有 ${Object.keys(PRESET_MAPS).length} 張地圖。`);
-        } else {
-            console.error(`⚠️ 讀取外部地圖失敗 (狀態碼: ${response.status})，將繼續使用本地預設地圖。`);
-        }
-    } catch (error) {
-        console.error('🚨 載入外部地圖時發生網路錯誤:', error.message);
-    }
-}
-
-// 啟動伺服器前，呼叫載入函數
-loadExternalMaps();
-// ============================================================
-//  房間管理
-// ============================================================
-const rooms = {};
-
-function getRoom(roomId) {
-    if (!rooms[roomId]) {
-        rooms[roomId] = {
-            players: {},
-            bullets: [],
-            walls: [],
-            scores: { red: 0, blue: 0 },
-            timeLeft: 180,
-            active: false,
-            tickCount: 0,
-            loopHandle: null
-        };
-    }
-    return rooms[roomId];
-}
-
-// ============================================================
-//  物理與 AI 函數
-// ============================================================
-function checkCol(walls, x, y, r) {
-    if (x < r || x > CANVAS_W - r || y < r || y > CANVAS_H - r) return true;
-    for (const w of walls) {
-        if (x > w.x - r && x < w.x + w.w + r &&
-            y > w.y - r && y < w.y + w.h + r) return true;
-    }
-    return false;
-}
-
-function getSpawn(team, slot) {
-    let y = 200;
-    // 稍微錯開出生點避免擠在一起
-    if (slot === 1) y = 60;
-    if (slot === 2) y = 130;
-    if (slot === 3) y = 200;
-    if (slot === 4) y = 270;
-    if (slot === 5) y = 340;
-    return team === 'red' ? { x: 50, y, a: 0 } : { x: 550, y, a: 180 };
-}
-
-function applyCmd(room, data) {
-    const p = room.players[data.id];
-    if (!p || p.hp <= 0) return;
-
-    if (data.action === 'move') {
-        // 🌟 把距離加入「目標移動緩衝區」
-        p.targetMove = (p.targetMove || 0) + data.val;
-    } else if (data.action === 'turn') {
-        // 🌟 把轉向角度加入緩衝區
-        p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
-    } else if (data.action === 'fire') {
-        if (!room.active) return;
-        if (p.cooldown > 0) return;
-        room.bullets.push({
-            x: p.x, y: p.y,
-            angle: p.angle,
-            owner: p.id,
-            team: p.team,
-            distance: 0,
-            maxRange: BULLET_RANGE
-        });
-        p.cooldown = COOLDOWN_TICKS;
-    }
-}
-
-// 🌟 AI 思考與移動邏輯 (已修復結構)
-function updateBots(room) {
-    for (let id in room.players) {
-        let bot = room.players[id];
-        if (!bot.isBot || bot.hp <= 0) continue;
-
-        let target = null;
-        let minDist = Infinity;
-        for (let eid in room.players) {
-            let enemy = room.players[eid];
-            if (enemy.team !== bot.team && enemy.hp > 0) {
-                let dist = Math.hypot(enemy.x - bot.x, enemy.y - bot.y);
-                if (dist < minDist) {
-                    minDist = dist;
-                    target = enemy;
-                }
-            }
-        }
-
-        if (target) {
-            let level = bot.level || 2;
-
-            // ==========================================
-            // 🌟 1. 瞄準系統：加入「避障狀態」
-            // ==========================================
-            if (bot.evadeTimer > 0) {
-                // 撞牆了！暫時不要管玩家，專心倒車並轉動方向盤
-                bot.evadeTimer--;
-                bot.angle += 5; // 邊退邊轉彎，尋找新出路
-            } else {
-                // 正常情況：死盯著玩家瞄準
-                let dx = target.x - bot.x;
-                let dy = target.y - bot.y;
-                let targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-                let diff = ((targetAngle - bot.angle + 540) % 360) - 180;
-                let turnSpeed = level === 1 ? 2 : (level === 2 ? 5 : 10);
-
-                if (Math.abs(diff) > turnSpeed) {
-                    bot.angle += Math.sign(diff) * turnSpeed;
-                } else {
-                    bot.angle = targetAngle;
-                }
-            }
-
-            // ==========================================
-            // 🧠 2. 大腦決定步伐
-            // ==========================================
-            if (!bot.targetMove || Math.abs(bot.targetMove) < 2) {
-                if (level === 1) {
-                    if (Math.random() < 0.05) bot.targetMove = 10;
-                } else if (level === 2) {
-                    if (minDist > 120) bot.targetMove = 15;
-                } else if (level === 3) {
-                    if (minDist > 200) {
-                        bot.targetMove = 20;
-                    } else if (minDist < 120) {
-                        bot.targetMove = -15;
+                    // 如果沒有，就加進去
+                    if (!exists) {
+                        let opt = document.createElement('option');
+                        opt.value = mapKey;       // 這是傳給 Server 的 key
+                        opt.innerHTML = "🌐 " + mapKey; // 這是顯示給學生看的名稱
+                        select.appendChild(opt);
                     }
                 }
-            }
+            });
+            console.log("✅ 學生端地圖選單已同步 GitHub");
+        }
+    } catch (e) {
+        console.error("無法載入外部地圖清單", e);
+    }
+}
 
-            // ==========================================
-            // 🦵 3. 雙腿執行與碰撞偵測
-            // ==========================================
-            if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
-                let speed = 2;
-                let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
+// 當畫面載入完成後，執行抓取
+window.addEventListener('DOMContentLoaded', loadStudentMapMenu);
+        // --- 連線系統 ---
 
-                let rad = bot.angle * (Math.PI / 180);
-                let oldX = bot.x;
-                let oldY = bot.y;
+        function connectSystem() {
+            try {
+                const url = document.getElementById('serverUrl').value;
+                const modeElem = document.querySelector('input[name="gameMode"]:checked');
 
-                bot.x += Math.cos(rad) * step;
-                bot.y += Math.sin(rad) * step;
+                // 🌟 修改這裡：直接更新全域變數 mode，不要用 const
+                mode = modeElem ? modeElem.value : 'class';
 
-                let hitWall = false;
-                let radius = TANK_RADIUS;
-                let mapWidth = CANVAS_W;
-                let mapHeight = CANVAS_H;
+                const name = document.getElementById('playerName').value || '佚名';
 
-                // 🗺️ 邊界檢查
-                if (bot.x - radius < 0 || bot.x + radius > mapWidth ||
-                    bot.y - radius < 0 || bot.y + radius > mapHeight) {
-                    hitWall = true;
-                }
+                socket = io(url);
+                socket.on('connect_error', (err) => { log("🔴 連線失敗: " + err.message); });
 
-                // 🔍 關鍵修正：智慧尋找牆壁陣列 (防止穿牆)
-                let currentWalls = room.walls;
-                if (!currentWalls && typeof walls !== 'undefined') currentWalls = walls; // 去全域變數找
-                if (!currentWalls) currentWalls = []; // 如果真的沒有牆，就給空陣列防呆
+                socket.on('connect', () => {
+                    log("🟢 連線成功，請求加入遊戲...");
+                    log("目前的遊戲模式是：" + mode);
+                    const loginPanel = document.getElementById('loginPanel');
+                    if (loginPanel) document.getElementById('overlay').style.display = 'none';
+                    document.getElementById('statusText').innerText = "🟢 已連線";
 
-                // 🧱 內部障礙物檢查
-                if (!hitWall && currentWalls.length > 0) {
-                    for (let w of currentWalls) {
-                        if (bot.x + radius > w.x && bot.x - radius < w.x + w.w &&
-                            bot.y + radius > w.y && bot.y - radius < w.y + w.h) {
-                            hitWall = true;
-                            break;
+                    // 確立全域變數自己的 ID
+                    myId = socket.id;
+
+                    if (mode === 'class') {
+                        // 👨‍🏫 老師開戰場模式
+                        roomId = document.getElementById('roomId') ? document.getElementById('roomId').value : "1234";
+                        myTeam = document.getElementById('team') ? document.getElementById('team').value : "red";
+                        mySlot = document.getElementById('slot') ? document.getElementById('slot').value : "1";
+
+                        socket.emit('joinRoom', roomId);
+                        socket.emit('playerJoin', { id: socket.id, name, roomId, team: myTeam, slot: mySlot });
+
+                    } else if (mode === 'practice') {
+                        // 1. 抓取學生介面上輸入的「戰場編號」(如果沒輸入，預設為 coop_1)
+                        roomId = document.getElementById('practiceRoomId') ? document.getElementById('practiceRoomId').value : "coop_1";
+                        myTeam = 'blue';
+                        const mapId = document.getElementById('practiceMap') ? document.getElementById('practiceMap').value : "map1";
+                        const botCount = document.getElementById('botCount') ? document.getElementById('botCount').value : "1";
+
+                        // 2. 🌟 關鍵修正：呼叫 joinCoop 而不是 joinPractice！
+                        // 並且把 roomId 傳給伺服器，讓輸入同戰場編號的學生能相遇！
+                        socket.emit('joinCoop', {
+                            id: socket.id,
+                            name: name,
+                            roomId: roomId,
+                            mapId: mapId,
+                            botCount: parseInt(botCount)
+                        });
+                    } else if (mode === 'pvp') {
+                        // ⚔️ 學生自由對戰模式
+                        roomId = document.getElementById('pvpRoomId') ? document.getElementById('pvpRoomId').value : "999";
+                        myTeam = document.getElementById('pvpTeam') ? document.getElementById('pvpTeam').value : "red";
+                        mySlot = document.getElementById('pvpSlot') ? document.getElementById('pvpSlot').value : "1";
+                        const mapId = document.getElementById('pvpMap') ? document.getElementById('pvpMap').value : "map1";
+
+                        socket.emit('joinStudentPvP', { id: socket.id, name, roomId, team: myTeam, slot: mySlot, mapId });
+                    }
+
+                    startRenderLoop();
+                });
+
+                // 接收地圖
+                socket.on('map', (data) => {
+                    if (data && data.walls) walls = data.walls;
+                });
+
+                // 接收 Server 算好的遊戲狀態
+                socket.on('state', (data) => {
+                    if (!data) return;
+                    players = data.players || {};
+                    bullets = data.bullets || [];
+                    localBullets = bullets.map(b => ({ ...b }));
+                    lastStateTime = performance.now();
+                    gameScores = data.scores || { red: 0, blue: 0 };
+                    gameTimeLeft = data.time || 0;
+
+                    updateUI(); // 更新計分板
+
+                    // 伺服器確認後同步本地預測
+                    if (players[myId]) {
+                        if (!localMe) {
+                            localMe = { x: players[myId].x, y: players[myId].y, angle: players[myId].angle };
+                        } else {
+                            localMe.x = localMe.x * 0.5 + players[myId].x * 0.5;
+                            localMe.y = localMe.y * 0.5 + players[myId].y * 0.5;
+                            localMe.angle = players[myId].angle;
                         }
                     }
-                }
 
-                // 💥 撞擊應對機制
-                if (hitWall) {
-                    bot.x = oldX;
-                    bot.y = oldY;
-
-                    // 如果是往前走撞到，就強迫倒車；如果是倒車撞到，就往前開
-                    bot.targetMove = bot.targetMove > 0 ? -40 : 40;
-
-                    // 🌟 啟動避障狀態：接下來 20 個 frame 不要瞄準玩家，專心脫困！
-                    bot.evadeTimer = 20;
-                } else {
-                    bot.targetMove -= step;
-                }
-            }
-
-            // ==========================================
-            // 🔥 4. 開火邏輯
-            // ==========================================
-            let aimTolerance = level === 1 ? 30 : (level === 2 ? 15 : 5);
-            // 只有在非避障狀態，且角度對準時才開火
-            let diffForFire = target ? (((Math.atan2(target.y - bot.y, target.x - bot.x) * 180 / Math.PI) - bot.angle + 540) % 360) - 180 : 999;
-
-            if (Math.abs(diffForFire) < aimTolerance && bot.cooldown <= 0 && (!bot.evadeTimer || bot.evadeTimer <= 0)) {
-                applyCmd(room, { id: bot.id, action: 'fire' });
-                bot.cooldown = level === 1 ? 50 : (level === 2 ? 30 : 15);
-            }
-        }
-    }
-}
-
-// 🌟 新增：產生隨機且不會卡在牆壁內的安全出生點
-function getSafeRandomSpawn(walls) {
-    let rx, ry;
-    let isSafe = false;
-    let attempts = 0;
-
-    // 嘗試 50 次找尋空白地點 (假設 TANK_RADIUS 約為 20，我們留 50 的安全邊界)
-    while (!isSafe && attempts < 50) {
-        rx = 50 + Math.random() * (CANVAS_W - 100);
-        ry = 50 + Math.random() * (CANVAS_H - 100);
-
-        // 利用您寫好的 checkCol 檢查是否撞牆
-        if (!checkCol(walls, rx, ry, 20)) {
-            isSafe = true;
-        }
-        attempts++;
-    }
-
-    // 如果地圖太滿真的找不到，就給個預設防呆值
-    if (!isSafe) { rx = 100; ry = 100; }
-
-    // 回傳座標與隨機朝向 (0~360度)
-    return { x: rx, y: ry, a: Math.random() * 360 };
-}
-
-// ============================================================
-//  物理迴圈 (每 50ms 執行一次)
-// ============================================================
-function tickRoom(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
-    room.tickCount++;
-
-    if (room.active) {
-        updateBots(room);
-    }
-
-    // 🌟 在這裡處理所有坦克 (玩家+電腦) 的平滑移動與冷卻
-    for (const id in room.players) {
-        let p = room.players[id];
-        if (p.hp <= 0) continue;
-
-        // 扣除冷卻
-        if (p.cooldown > 0) p.cooldown--;
-
-        // AI 的移動已在 updateBots 內完成，這裡只處理真人玩家
-        if (p.isBot) continue;
-
-        // 處理平滑前進/後退 (真人玩家)
-        if (p.targetMove && Math.abs(p.targetMove) > 0) {
-            const stepSize = 4; // 移動速度
-            const dir = p.targetMove > 0 ? 1 : -1;
-            const step = Math.min(stepSize, Math.abs(p.targetMove));
-
-            const rad = p.angle * Math.PI / 180;
-            const dx = Math.cos(rad) * step * dir;
-            const dy = Math.sin(rad) * step * dir;
-
-            if (!checkCol(room.walls, p.x + dx, p.y + dy, TANK_RADIUS)) {
-                p.x += dx;
-                p.y += dy;
-                p.targetMove -= step * dir;
-            } else {
-                p.targetMove = 0; // 撞牆停止
-            }
-        }
-
-        // 處理平滑轉向 (玩家專用，AI已經在 updateBots 內轉好了)
-        if (p.targetAngle !== undefined) {
-            let diff = p.targetAngle - p.angle;
-            if (Math.abs(diff) > 0.5) {
-                const turnSpeed = 5;
-                const turnStep = Math.min(turnSpeed, Math.abs(diff)) * Math.sign(diff);
-                p.angle += turnStep;
-            } else {
-                p.angle = p.targetAngle;
-                p.targetAngle = undefined;
-            }
-        }
-    }
-
-    if (!room.active) {
-        io.to(roomId).emit('state', buildState(room));
-        return;
-    }
-
-    room.timeLeft -= TICK_MS / 1000;
-    if (room.timeLeft < 0) room.timeLeft = 0;
-
-    for (let i = room.bullets.length - 1; i >= 0; i--) {
-        const b = room.bullets[i];
-        const rad = b.angle * Math.PI / 180;
-        b.x += Math.cos(rad) * BULLET_SPEED;
-        b.y += Math.sin(rad) * BULLET_SPEED;
-        b.distance += BULLET_SPEED;
-
-        let destroy = (b.distance >= b.maxRange || checkCol(room.walls, b.x, b.y, BULLET_RADIUS));
-
-        if (!destroy) {
-            for (const pid in room.players) {
-                const p = room.players[pid];
-                if (p.team === b.team || p.hp <= 0) continue;
-                const dx = p.x - b.x, dy = p.y - b.y;
-                if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) {
-                    if (b.team === 'red') room.scores.red++;
-                    else room.scores.blue++;
-                    p.hp -= 20;
-                    destroy = true;
-                    if (p.hp <= 0) {
-                        const savedPid = pid;
-                        setTimeout(() => {
-                            const r2 = rooms[roomId];
-                            if (!r2 || !r2.players[savedPid]) return;
-                            const pp = r2.players[savedPid];
-
-                            // 🌟 判斷：如果是 AI 給隨機點，如果是玩家則回到固定出生點
-                            let s;
-                            if (pp.isBot) {
-                                s = getSafeRandomSpawn(r2.walls);
-                            } else {
-                                s = getSpawn(pp.team, pp.slot);
-                            }
-
-                            pp.x = s.x; pp.y = s.y; pp.angle = s.a; pp.hp = 100;
-                            if (pp.isBot) pp.targetAngle = s.a; // 同步 AI 角度
-
-                        }, RESPAWN_MS);
+                    if (data.gameOver) {
+                        stopCode();
+                        let msg = data.winner === 'draw' ? '🤝 比賽平手！'
+                            : (data.winner === myTeam ? '🎉 恭喜！你的隊伍獲勝了！🏆' : '💀 惜敗... 下次再贏回來！');
+                        setTimeout(() => alert(msg), 100);
                     }
-                    break;
+                });
+
+            } catch (e) {
+                alert("登入介面發生錯誤：" + e.message);
+                console.error(e);
+            }
+        }
+
+
+        // --- 更新 UI (防崩潰增強版) ---
+        function updateUI() {
+            try {
+                // 加入 if 判斷，避免學生端的 HTML 找不到這些計分板 ID 時造成整個程式當機
+                const sr = document.getElementById('scoreRed');
+                const sb = document.getElementById('scoreBlue');
+                const td = document.getElementById('timerDisplay');
+
+                if (sr) sr.innerText = gameScores.red;
+                if (sb) sb.innerText = gameScores.blue;
+                if (td) {
+                    let m = Math.floor(gameTimeLeft / 60);
+                    let s = Math.floor(gameTimeLeft % 60);
+                    td.innerText = `${m}:${s < 10 ? '0' + s : s}`;
                 }
+            } catch (e) {
+                console.warn("UI 更新失敗 (但不影響遊戲)", e);
             }
         }
-        if (destroy) room.bullets.splice(i, 1);
-    }
 
-    if (room.timeLeft <= 0) {
-        room.active = false;
-        let winner = 'draw';
-        if (room.scores.red > room.scores.blue) winner = 'red';
-        else if (room.scores.blue > room.scores.red) winner = 'blue';
-        io.to(roomId).emit('state', buildState(room, true, winner));
-        console.log(`🏁 房間 ${roomId} 結束，勝者: ${winner}`);
-        return;
-    }
+        function sendCmd(action, val) {
+            if (!socket) return;
 
-    io.to(roomId).emit('state', buildState(room));
-}
-
-function buildState(room, gameOver = false, winner = null) {
-    return {
-        players: room.players,
-        bullets: room.bullets,
-        scores: room.scores,
-        time: room.timeLeft,
-        gameOver,
-        winner
-    };
-}
-
-function startLoop(roomId) {
-    const room = getRoom(roomId);
-    if (room.loopHandle) return;
-    room.loopHandle = setInterval(() => tickRoom(roomId), TICK_MS);
-    console.log(`▶️  房間 ${roomId} 物理迴圈啟動`);
-}
-
-// ============================================================
-//  Socket.io 事件
-// ============================================================
-io.on('connection', (socket) => {
-    console.log('連線:', socket.id);
-
-    socket.on('joinRoom', (roomId) => {
-        socket.join(roomId);
-        socket.roomId = roomId;
-        const room = getRoom(roomId);
-        startLoop(roomId);
-        socket.emit('map', { walls: room.walls });
-        socket.emit('state', buildState(room));
-    });
-
-    socket.on('setMap', (data) => {
-        const room = getRoom(data.roomId);
-        room.walls = data.walls;
-        io.to(data.roomId).emit('map', { walls: room.walls });
-        console.log(`🗺️  房間 ${data.roomId} 地圖更新`);
-    });
-
-    socket.on('startGame', (data) => {
-        const room = getRoom(data.roomId);
-        room.active = true;
-        room.timeLeft = data.timeLimit || 180;
-        room.scores = { red: 0, blue: 0 };
-        room.bullets = [];
-        io.to(data.roomId).emit('state', buildState(room));
-        console.log(`🔔 房間 ${data.roomId} 比賽開始`);
-    });
-
-    socket.on('resetGame', (data) => {
-        const room = getRoom(data.roomId);
-        room.active = false;
-        room.bullets = [];
-        room.scores = { red: 0, blue: 0 };
-        room.timeLeft = data.timeLimit || 180;
-        for (const id in room.players) {
-            const p = room.players[id];
-            if (!p.isBot) {
-                const s = getSpawn(p.team, p.slot);
-                p.x = s.x; p.y = s.y; p.angle = s.a;
-            }
-            p.hp = 100; p.cooldown = 0; p.targetMove = 0;
+            socket.emit('cmd', { roomId, id: myId, action, val });
         }
-        io.to(data.roomId).emit('state', buildState(room));
-        io.to(data.roomId).emit('map', { walls: room.walls });
-        console.log(`♻️  房間 ${data.roomId} 重置`);
-    });
 
-    socket.on('playerJoin', (data) => {
-        const room = getRoom(data.roomId);
-        const s = getSpawn(data.team, data.slot);
-        room.players[data.id] = {
-            id: data.id, name: data.name,
-            team: data.team, slot: data.slot,
-            x: s.x, y: s.y, angle: s.a,
-            hp: 100, cooldown: 0, isBot: false
+  
+
+        // --- Blockly 初始化 ---
+        window.onload = function () {
+            workspace = Blockly.inject('blocklyDiv', {
+                toolbox: document.getElementById('toolbox'), scrollbars: true, grid: { spacing: 20, length: 3, colour: '#444', snap: true }, zoom: { controls: true, wheel: true }
+            });
+            defineBlocks();
         };
-        socket.playerId = data.id;
-        io.to(data.roomId).emit('state', buildState(room));
-        socket.emit('map', { walls: room.walls });
-        console.log(`👤 ${data.name} 加入房間 ${data.roomId}`);
-    });
 
-    socket.on('cmd', (data) => {
-        // 🌟 確保玩家確實有在房間內
-        const roomId = socket.roomId;
-        const playerId = socket.playerId;
-        if (!roomId || !playerId) return;
+        function defineBlocks() {
 
-        const room = rooms[roomId];
-        if (!room || !room.active) return;
-
-        // 🌟 1. 取得該名玩家的物件
-        const player = room.players[playerId];
-        if (!player || player.hp <= 0) return;
-
-        // ==========================================
-        // 🛡️ 防護一：頻率限制 (Rate Limiting)
-        // ==========================================
-        const now = Date.now();
-        // 如果是第一次發送 (lastCmdTime 不存在)，視為 0
-        if (now - (player.lastCmdTime || 0) < 400) {
-            return; // 拒絕處理：距離上次指令不到 0.4 秒 (400ms)，判定為外掛狂按或網路異常
-        }
-        player.lastCmdTime = now; // 記錄這次成功指令的時間
-
-        // ==========================================
-        // 🛡️ 防護二：數值箝制 (Clamping) 避免超速外掛
-        // ==========================================
-        let val = Number(data.val);
-        if (isNaN(val)) val = 0;
-
-        // 根據不同動作，限制最大值與最小值 (數值可依你的遊戲平衡調整)
-        if (data.action === 'move') {
-            val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
-        } else if (data.action === 'turn') {
-            val = Math.max(-15, Math.min(15, val)); // 限制轉向最大只能傳 15 度
-        }
-
-        // ==========================================
-        // ⚔️ 執行指令
-        // ==========================================
-        // 強制覆寫 ID 與過濾後的安全數值，確保套用到正確的玩家身上
-        data.id = playerId;
-        data.val = val;
-
-        applyCmd(room, data);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('斷線:', socket.id);
-        const roomId = socket.roomId;
-        const pid = socket.playerId;
-
-        if (roomId && pid && rooms[roomId]) {
-            // 1. 移除斷線的玩家
-            delete rooms[roomId].players[pid];
-
-            // 2. 🌟 檢查房間裡是否還有「真人玩家」 (過濾掉 isBot)
-            let hasRealPlayer = false;
-            for (let id in rooms[roomId].players) {
-                if (!rooms[roomId].players[id].isBot) {
-                    hasRealPlayer = true;
-                    break;
+            Blockly.Blocks['tank_move'] = {
+                init: function () {
+                    this.jsonInit({
+                        "message0": "🚀 坦克前進",
+                        "previousStatement": null,
+                        "nextStatement": null,
+                        "colour": 210
+                    });
                 }
-            }
+            };
+            // 🎯 修正：對戰版必須使用 apiCmd('move', 20)
+            Blockly.JavaScript.forBlock['tank_move'] = () => `apiCmd('move', 20);\n`;
 
-            // 3. 🌟 如果沒有真人玩家了 (只剩 AI 或全空)，就關閉並刪除這個房間
-            if (!hasRealPlayer) {
-                clearInterval(rooms[roomId].loopHandle); // 停止物理迴圈
-                delete rooms[roomId];                    // 釋放記憶體
-                console.log(`🗑️ 房間 ${roomId} 已無玩家，關閉並回收資源`);
-            } else {
-                // 如果還有其他真人，只廣播有人離開
-                io.to(roomId).emit('state', buildState(rooms[roomId]));
-            }
-        }
-    });
+            // 🔙 坦克後退 (固定 20 步)
+            Blockly.Blocks['tank_move_back'] = {
+                init: function () {
+                    this.jsonInit({
+                        "message0": "🔙 坦克後退",
+                        "previousStatement": null,
+                        "nextStatement": null,
+                        "colour": 210
+                    });
+                }
+            };
+            // 🎯 修正：對戰版使用 apiCmd('move_back', 20)
+            Blockly.JavaScript.forBlock['tank_move_back'] = () => `apiCmd('move_back', 20);\n`;
+            // 🔄 轉向
+            Blockly.Blocks['tank_turn'] = { init: function () { this.jsonInit({ "message0": "🔄 右轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
+            Blockly.JavaScript.forBlock['tank_turn'] = b => `apiCmd('turn', ${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
 
-    // 🌟 修正後的個人專屬練習模式
-    socket.on('joinPractice', (data) => {
-        // 1. 使用玩家的 ID 當作專屬房間名稱，確保每次 F5 都是全新的環境
-        // (假設每次 F5 前端都會產生新的 data.id)
-        const PR_ID = "practice_" + data.id;
-        const room = getRoom(PR_ID);
+            Blockly.Blocks['tank_turn_left'] = { init: function () { this.jsonInit({ "message0": "🔄 左轉 %1 度", "args0": [{ "type": "input_value", "name": "DEG", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 230 }); } };
+            Blockly.JavaScript.forBlock['tank_turn_left'] = b => `apiCmd('turn', -${Blockly.JavaScript.valueToCode(b, 'DEG', Blockly.JavaScript.ORDER_ATOMIC) || '0'});\n`;
 
-        // 2. 🌟 強制重置房間狀態 (避免 F5 後舊物件殘留)
-        room.players = {}; // 清空所有舊玩家與舊 AI
-        room.bullets = []; // 清空舊子彈
-        room.active = true;
-        room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-        room.timeLeft = 999;
+            // 🛑 停止與發射
+            Blockly.Blocks['tank_stop'] = { init: function () { this.jsonInit({ "message0": "🛑 停止移動", "previousStatement": null, "nextStatement": null, "colour": 210 }); } };
+            Blockly.JavaScript.forBlock['tank_stop'] = () => `apiCmd('stop', 0);\n`;
 
-        // 依照學生選的數量來決定難度
-        let aiLevel = data.botCount === 1 ? 1 : (data.botCount === 3 ? 2 : 3);
+            Blockly.Blocks['tank_fire'] = { init: function () { this.jsonInit({ "message0": "🔥 發射砲彈", "previousStatement": null, "nextStatement": null, "colour": 0 }); } };
+            Blockly.JavaScript.forBlock['tank_fire'] = () => `apiCmd('fire', 0);\n`;
 
-        // 3. 🌟 生成全新且隨機的 AI
-        for (let i = 1; i <= data.botCount; i++) {
-            let botId = 'bot_' + Math.random().toString(36).substr(2, 6);
-            let botName = '電腦_' + Math.floor(Math.random() * 1000);
+            // 📡 感測器
+            const makeSensor = (n, t, r) => { Blockly.Blocks[n] = { init: function () { this.jsonInit({ "message0": t, "output": r, "colour": 0 }); } }; Blockly.JavaScript.forBlock[n] = () => [`apiSensor('${n}')`, Blockly.JavaScript.ORDER_NONE]; };
+            makeSensor('tank_is_bullet_incoming', "⚠️ 有炮彈朝我飛來", "Boolean");
+            makeSensor('tank_scan_bullet_dist', "📡 來襲炮彈距離", "Number");
+            makeSensor('tank_scan_bullet_angle', "📡 來襲炮彈角度", "Number");
+            makeSensor('tank_scan_enemy', "📡 最近敵人距離", "Number");
+            makeSensor('tank_scan_angle', "📐 最近敵人角度", "Number");
+            makeSensor('tank_scan_wall', "🚧 前方障礙距離", "Number");
+            makeSensor('tank_shot_blocked', "⛔ 射擊線受阻", "Boolean");
+            makeSensor('tank_get_enemy_count', "🔢 存活敵人數", "Number");
+            makeSensor('tank_get_hp', "❤️ 當前血量", "Number");
+            makeSensor('tank_get_x', "📍 取得 X 座標", "Number");
+            makeSensor('tank_get_y', "📍 取得 Y 座標", "Number");
 
-            // 使用我們剛寫好的隨機點函數
-            const s = getSafeRandomSpawn(room.walls);
-
-            room.players[botId] = {
-                id: botId, name: botName, team: 'red', slot: i,
-                x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
-                hp: 100, cooldown: 0,
-                isBot: true, level: aiLevel, targetMove: 0
+            // 攔截預設的 print 積木改為彈出視窗
+            Blockly.JavaScript.forBlock['text_print'] = function (block) {
+                var msg = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE) || "''";
+                return 'alert(' + msg + ');\n';
             };
         }
-        console.log(`🤖 專屬練習房 [${PR_ID}] 啟動，生成 ${data.botCount} 個 AI (等級 ${aiLevel})`);
 
-        // 啟動物理迴圈
-        startLoop(PR_ID);
+        // --- 核心：直譯器 API 設定 ---
+        function initApi(intr, scope) {
+            const apiCmdWrapper = function (action, val, callback) {
+                if (!isRunning) { callback(); return; }
+                if (action === 'move_back') { action = 'move'; val = -val; }
 
-        // 4. 加入玩家自己
-        room.players[data.id] = {
-            id: data.id, name: data.name,
-            team: 'blue', slot: Object.keys(room.players).length,
-            x: 100 + (Math.random() * 50), y: 300, angle: 0,
-            hp: 100, cooldown: 0, isBot: false
-        };
+                sendCmd(action, val);
+                setTimeout(function () { callback(); }, GAME_ACTION_DELAY);
+            };
 
-        socket.playerId = data.id;
-        socket.roomId = PR_ID;
+            intr.setProperty(scope, 'apiCmd', intr.createAsyncFunction(apiCmdWrapper));
+            const wrap = (n, f) => intr.setProperty(scope, n, intr.createNativeFunction(f));
 
-        socket.join(PR_ID);
-        socket.emit('map', { walls: room.walls });
-        io.to(PR_ID).emit('state', buildState(room));
-        console.log(`👤 ${data.name} 加入練習房`);
-    });
+            wrap('apiSensor', (type) => {
+                let me = players[myId];
+                if (!me || me.hp <= 0) return (type === 'tank_shot_blocked' ? false : 999);
+                // 🛡️ 新增：偵測敵方來襲炮彈邏輯
+                if (type === 'tank_is_bullet_incoming' || type === 'tank_scan_bullet_dist' || type === 'tank_scan_bullet_angle') {
+                    let nearestBullet = null;
+                    let minB_Dist = 180; // 只偵測有效射程 (180) 內的危險
 
-    socket.on('joinStudentPvP', (data) => {
-        const room = getRoom(data.roomId);
+                    for (let b of bullets) {
+                        if (b.team !== me.team) { // 只管敵方的炮彈
+                            let dx = me.x - b.x, dy = me.y - b.y;
+                            let dist = Math.sqrt(dx * dx + dy * dy);
 
-        // 1. 房間初始化
-        if (!room.active) {
-            room.active = true;
-            // 確保每次新開房，玩家清單都是乾淨的
-            room.players = {};
-            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300;
-            room.scores = { red: 0, blue: 0 };
-            room.bullets = [];
-            console.log(`⚔️ 學生對戰房 [${data.roomId}] 初始化`);
+                            // 計算炮彈指向玩家的絕對角度
+                            let angleToMe = Math.atan2(dy, dx) * 180 / Math.PI;
+                            // 判斷炮彈實際飛行角度，是否大致朝玩家飛來 (容錯 ±20 度)
+                            let diff = b.angle - angleToMe;
+                            while (diff > 180) diff -= 360;
+                            while (diff <= -180) diff += 360;
 
-            // 💡 建議：在這裡不要直接 startLoop()。
-            // 可以在有兩名以上真人玩家加入時，或另設一個 'startGame' 事件來觸發 startLoop()。
-            // 但如果為了教學方便，先保留在這裡啟動也是可以的。
-            startLoop(data.roomId);
+                            if (Math.abs(diff) < 20 && dist < minB_Dist) {
+                                minB_Dist = dist;
+                                nearestBullet = b;
+                            }
+                        }
+                    }
+
+                    if (type === 'tank_is_bullet_incoming') return nearestBullet !== null;
+                    if (type === 'tank_scan_bullet_dist') return nearestBullet ? minB_Dist : 999;
+                    if (type === 'tank_scan_bullet_angle') {
+                        if (!nearestBullet) return 0;
+                        let dx = nearestBullet.x - me.x, dy = nearestBullet.y - me.y;
+                        let absAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+                        // 轉換為相對於「自身車頭方向」的角度，方便學生寫「轉向指令」
+                        let relAngle = absAngle - me.angle;
+                        while (relAngle > 180) relAngle -= 360;
+                        while (relAngle <= -180) relAngle += 360;
+                        return relAngle;
+                    }
+                }
+                if (type === 'tank_get_hp') return me.hp;
+                if (type === 'tank_get_x') return me.x;
+                if (type === 'tank_get_y') return me.y;
+
+                let enemies = [];
+                for (let pid in players) {
+                    let p = players[pid];
+                    if (p.team !== me.team && p.hp > 0) enemies.push(p);
+                }
+                if (type === 'tank_get_enemy_count') return enemies.length;
+
+                let target = null, minD = 9999;
+                for (let p of enemies) {
+                    let d = Math.sqrt((p.x - me.x) ** 2 + (p.y - me.y) ** 2);
+                    if (d < minD) { minD = d; target = p; }
+                }
+                if (type === 'tank_scan_enemy') return (minD === 9999 ? 999 : minD);
+
+                if (type === 'tank_scan_angle') {
+                    if (target) {
+                        let angle = Math.atan2(target.y - me.y, target.x - me.x) * 180 / Math.PI;
+                        let diff = angle - me.angle;
+                        while (diff <= -180) diff += 360;
+                        while (diff > 180) diff -= 360;
+                        return diff;
+                    }
+                    return 0;
+                }
+
+                if (type === 'tank_scan_wall') {
+                    const maxDist = 1000;
+                    let rad = me.angle * Math.PI / 180;
+                    let dx = Math.cos(rad), dy = Math.sin(rad);
+                    for (let d = 0; d < maxDist; d += 10) {
+                        let cx = me.x + dx * d, cy = me.y + dy * d;
+                        if (checkCollision(cx, cy, 2)) return d;
+                    }
+                    return maxDist;
+                }
+
+                if (type === 'tank_shot_blocked') {
+                    if (!target) return false;
+                    let dx = target.x - me.x, dy = target.y - me.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let stepX = dx / dist, stepY = dy / dist;
+                    for (let i = 20; i < dist - 20; i += 10) {
+                        let checkX = me.x + (stepX * i), checkY = me.y + (stepY * i);
+                        if (checkCollision(checkX, checkY, 2)) return true;
+                    }
+                    return false;
+                }
+            });
+
+            wrap('log', (m) => log(m));
+            wrap('alert', (text) => alert(text));
         }
 
-        // 2. ⚠️ 防呆檢查：如果 ID 重複，拒絕加入或給予新 ID
-        if (room.players[data.id]) {
-            console.log(`🚨 警告：玩家 ID [${data.id}] 重複或已存在房內！`);
-            // 選項 A: 阻止加入
-            // socket.emit('errorMsg', '連線衝突，請重新整理頁面');
-            // return;
-
-            // 選項 B: 容錯處理 (目前暫時保留你的覆蓋邏輯，但建議未來改為選項 A)
-        }
-
-        // 3. 玩家資料建立
-        const s = getSpawn(data.team, data.slot);
-        room.players[data.id] = {
-            id: data.id,
-            name: data.name,
-            team: data.team,
-            slot: data.slot,
-            x: s.x,
-            y: s.y,
-            angle: s.a,
-            hp: 100,
-            cooldown: 0,
-            isBot: false
-        };
-
-        socket.playerId = data.id;
-        socket.roomId = data.roomId;
-
-        socket.join(data.roomId);
-        socket.emit('map', { walls: room.walls });
-        io.to(data.roomId).emit('state', buildState(room));
-
-        // 4. 📊 統計目前人數
-        const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
-        console.log(`👤 ${data.name} 加入 PvP 房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
-    });
-
-    socket.on('joinCoop', (data) => {
-        const room = getRoom(data.roomId);
-
-        // 1. 房間初始化與機器人生成
-        if (!room.active) {
-            room.active = true;
-            room.players = {}; // 確保乾淨的房間
-            room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300;
-            room.scores = { red: 0, blue: 0 };
-            room.bullets = [];
-
-            let botCount = data.botCount || 5;
-            for (let i = 1; i <= botCount; i++) {
-                let botId = 'bot_' + Math.random().toString(36).substr(2, 6);
-                let botName = '電腦_' + Math.floor(Math.random() * 1000);
-                const s = getSafeRandomSpawn(room.walls);
-                room.players[botId] = {
-                    id: botId,
-                    name: botName,
-                    team: 'red',
-                    slot: i,
-                    x: s.x,
-                    y: s.y,
-                    angle: s.a,
-                    targetAngle: s.a,
-                    hp: 100,
-                    cooldown: 0,
-                    isBot: true,
-                    level: 2,
-                    targetMove: 0
-                };
+        function checkCollision(x, y, r) {
+            if (x < r || x > CANVAS_W - r || y < r || y > CANVAS_H - r) return true;
+            if (walls) {
+                for (let w of walls) {
+                    let wx = Number(w.x), wy = Number(w.y), ww = Number(w.w), wh = Number(w.h);
+                    if (x > wx - r && x < wx + ww + r && y > wy - r && y < wy + wh + r) return true;
+                }
             }
-            console.log(`🤝 合作房 [${data.roomId}] 創立，生成 ${botCount} 個 AI`);
-            startLoop(data.roomId);
+            return false;
         }
 
-        // 2. ⚠️ 防呆檢查
-        if (room.players[data.id]) {
-            console.log(`🚨 警告：玩家 ID [${data.id}] 重複！`);
+
+        function stepCode() {
+            if (!isRunning) return;
+            try {
+                if (interpreter.step()) {
+                    setTimeout(stepCode, 0);
+                } else {
+                    log("🏁 程式執行完畢");
+                    isRunning = false;
+                }
+            } catch (e) {
+                log("❌ 程式錯誤: " + e);
+                isRunning = false;
+            }
         }
 
-        // 3. 真人玩家資料建立
-        const s = getSafeRandomSpawn(room.walls);
-        room.players[data.id] = {
-            id: data.id,
-            name: data.name,
-            team: 'blue',
-            // 💡 這裡的小問題：如果有人中途退出再加入，Object.keys 的長度可能會導致 slot 號碼重複。
-            // 建議改為一個亂數，或是直接讓伺服器分配遞增的號碼
-            slot: Object.keys(room.players).length,
-            x: s.x,
-            y: s.y,
-            angle: s.a,
-            targetAngle: s.a,
-            hp: 100,
-            cooldown: 0,
-            isBot: false
-        };
+        function stopCode() { isRunning = false; log("⏸️ AI 停止"); }
+        function log(m) { let c = document.getElementById('console'); c.innerHTML += `<div>> ${m}</div>`; c.scrollTop = c.scrollHeight; }
 
-        socket.playerId = data.id;
-        socket.roomId = data.roomId;
+        function saveCode() {
+            const state = Blockly.serialization.workspaces.save(workspace);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+            a.download = 'tank_student_code.json';
+            a.click();
+            log("💾 已儲存程式碼 (JSON格式)");
+        }
 
-        socket.join(data.roomId);
-        socket.emit('map', { walls: room.walls });
-        io.to(data.roomId).emit('state', buildState(room));
+        function loadCodeFromFile(i) {
+            const f = i.files[0]; if (!f) return;
+            const r = new FileReader();
+            r.onload = e => {
+                workspace.clear();
+                try {
+                    const state = JSON.parse(e.target.result);
+                    Blockly.serialization.workspaces.load(state, workspace);
+                    log("📂 程式載入成功 (JSON)");
+                } catch (err) {
+                    try {
+                        Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(e.target.result), workspace);
+                        log("📂 舊版程式載入成功 (XML)");
+                    } catch (err2) {
+                        alert("❌ 格式錯誤");
+                    }
+                }
+            };
+            r.readAsText(f); i.value = '';
 
-        // 4. 📊 統計目前人數
-        const playerCount = Object.values(room.players).filter(p => !p.isBot).length;
-        console.log(`👤 ${data.name} 加入合作房 [${data.roomId}]。目前房內有 ${playerCount} 名真人。`);
-    });
-});
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-    console.log(`✅ 伺服器已成功啟動，正在監聽 Port: ${PORT}`);
-});
+        }
+        // --- 手動模式切換 ---
+        function toggleManualMode() {
+            isManualMode = !isManualMode;
+            const btn = document.getElementById('manualBtn');
+            document.activeElement.blur();
+
+            if (isManualMode) {
+                if (isRunning) stopCode(); // 如果 AI 正在跑，先停止 AI
+                btn.innerText = "🕹️ 手動模式: 開";
+                btn.classList.add('active');
+                log("🎮 手動控制已啟動 (W,A,S,D 與 空白鍵)");
+            } else {
+                btn.innerText = "🕹️ 手動模式: 關";
+                btn.classList.remove('active');
+                log("⏸️ 手動控制已關閉");
+            }
+        }
+
+        // --- 鍵盤監聽程式碼 ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+            }
+            // 只有在連線成功且開啟手動模式時才執行
+            if (!socket || !isManualMode || !myId) return;
+
+            const key = e.key.toLowerCase();
+            switch (key) {
+                case 'w':
+                case 'arrowup':
+                    sendCmd('move', 20);
+                    break;
+                case 's':
+                case 'arrowdown':
+                    sendCmd('move', -20);
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    sendCmd('turn', -10); // 向左轉 10 度
+                    break;
+                case 'd':
+                case 'arrowright':
+                    sendCmd('turn', 10);  // 向右轉 10 度
+                    break;
+                case ' ':
+                    sendCmd('fire', 0);
+                    break;
+            }
+        });
+
+        // 讓啟動 AI 時自動關閉手動模式
+        function runCode() {
+            if (!players[myId] || players[myId].hp <= 0) { alert("尚未重生或連線！"); return; }
+
+            if (isManualMode) toggleManualMode(); // 🤖 啟動 AI 時自動切換掉手動模式
+
+            const code = Blockly.JavaScript.workspaceToCode(workspace);
+            interpreter = new Interpreter(code, initApi);
+            isRunning = true;
+            log("🤖 AI 啟動...");
+            stepCode();
+        }
+    </script>
+    <footer>
+        Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chieh<br>
+        本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
+        © 2026 張世杰 (<a href="mailto:teachthinking@gmail.com">teachthinking@gmail.com</a>)
+    </footer>
+</body>
+
+</html>
