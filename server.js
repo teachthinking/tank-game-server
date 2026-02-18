@@ -175,15 +175,18 @@ function checkCol(walls, x, y, r) {
     return false;
 }
 
+// 🌟 修正：Class 與 PvP 模式的固定出生點 (配合 800x600 畫布)
 function getSpawn(team, slot) {
-    let y = 200;
-    // 稍微錯開出生點避免擠在一起
-    if (slot === 1) y = 60;
-    if (slot === 2) y = 130;
-    if (slot === 3) y = 200;
-    if (slot === 4) y = 270;
-    if (slot === 5) y = 340;
-    return team === 'red' ? { x: 50, y, a: 0 } : { x: 550, y, a: 180 };
+    // 依據位置 (slot 1~3) 分布在上、中、下
+    let y = 300; // 預設中間
+    if (slot == 1) y = 100;
+    else if (slot == 2) y = 300;
+    else if (slot == 3) y = 500;
+    else if (slot == 4) y = 200; // 給第4名以後的備用位置
+    else if (slot == 5) y = 400;
+
+    // 紅隊在最左側 (X=50)，藍隊在最右側 (X=750)
+    return team === 'red' ? { x: 50, y, a: 0 } : { x: 750, y, a: 180 };
 }
 
 function applyCmd(room, data) {
@@ -690,11 +693,16 @@ io.on('connection', (socket) => {
         // 啟動物理迴圈
         startLoop(PR_ID);
 
-        // 4. 加入玩家自己
+// 4. 加入玩家自己
+        // 🌟 修正：練習模式的玩家也要使用「安全隨機點」出生，不能寫死座標
+        const playerSpawn = getSafeRandomSpawn(room.walls);
+        
         room.players[data.id] = {
             id: data.id, name: data.name,
             team: 'blue', slot: Object.keys(room.players).length,
-            x: 100 + (Math.random() * 50), y: 300, angle: 0,
+            x: playerSpawn.x,           // ✅ 使用隨機安全 X
+            y: playerSpawn.y,           // ✅ 使用隨機安全 Y
+            angle: playerSpawn.a,       // ✅ 隨機面朝方向
             hp: 100, cooldown: 0, isBot: false
         };
 
