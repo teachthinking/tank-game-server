@@ -739,6 +739,10 @@ function applyCmd(room, data) {
     } else if (data.action === 'turn') {
         // 🌟 把轉向角度加入緩衝區
         p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
+    } else if (data.action === 'setAngle') {
+        // 直接設定絕對朝向角度，一次到位不逐格轉
+        p.angle = ((data.val % 360) + 360) % 360;
+        p.targetAngle = undefined;
     } else if (data.action === 'fire') {
         if (!room.active) return;
         if (p.cooldown > 0) return;
@@ -779,6 +783,7 @@ function updateBots(room) {
             // ==========================================
             // 🌟 1. 瞄準系統：加入「避障狀態」
             // ==========================================
+            if (!bot.evadeTimer) bot.evadeTimer = 0; // 初始化防呆
             if (bot.evadeTimer > 0) {
                 // 撞牆了！暫時不要管玩家，專心倒車並轉動方向盤
                 bot.evadeTimer--;
@@ -969,7 +974,7 @@ function tickRoom(roomId) {
     }
 
     if (!room.active) {
-        io.to(roomId).emit('state', buildState(room));
+        // 遊戲已結束，不再廣播避免蓋掉前端勝負畫面
         return;
     }
 
@@ -1136,11 +1141,9 @@ io.on('connection', (socket) => {
         // 🛡️ 防護一：頻率限制 (Rate Limiting)
         // ==========================================
         const now = Date.now();
-        // 如果是第一次發送 (lastCmdTime 不存在)，視為 0
-        if (now - (player.lastCmdTime || 0) < 10) {
-            return; // 拒絕處理：距離上次指令不到 0.01 秒 (10ms)，判定為外掛狂按或網路異常
-        }
-        player.lastCmdTime = now; // 記錄這次成功指令的時間
+        const lastKey = 'lastCmd_' + data.action;
+        if (now - (player[lastKey] || 0) < 10) return;
+        player[lastKey] = now;
 
         // ==========================================
         // 🛡️ 防護二：數值箝制 (Clamping) 避免超速外掛
@@ -1151,9 +1154,10 @@ io.on('connection', (socket) => {
         // 根據不同動作，限制最大值與最小值 (數值可依你的遊戲平衡調整)
         if (data.action === 'move') {
             val = Math.max(-1000, Math.min(1000, val));
-            //val = Math.max(-20, Math.min(20, val)); // 限制移動最大只能傳 20
         } else if (data.action === 'turn') {
             val = Math.max(-360, Math.min(360, val));
+        } else if (data.action === 'setAngle') {
+            val = ((val % 360) + 360) % 360; // 正規化到 0~360
         }
 
         // ==========================================
