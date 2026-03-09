@@ -694,7 +694,7 @@ function getRoom(roomId) {
             bullets: [],
             walls: [],
             scores: { red: 0, blue: 0 },
-            timeLeft: 180,
+            timeLeft: 360,
             active: false,
             tickCount: 0,
             loopHandle: null
