@@ -1322,7 +1322,7 @@ io.on('connection', (socket) => {
             room.active = true;
             room.players = {}; // 確保乾淨的房間
             room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
-            room.timeLeft = 300;
+            room.timeLeft = 360;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
 
