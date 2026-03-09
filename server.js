@@ -1273,7 +1273,7 @@ io.on('connection', (socket) => {
                 room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             }
             
-            room.timeLeft = 300;
+            room.timeLeft = 360;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
             console.log(`⚔️ 學生對戰房 [${data.roomId}] 初始化`);
