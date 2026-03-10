@@ -27,7 +27,7 @@ const TANK_RADIUS = 12;
 const BULLET_RADIUS = 4;
 const HIT_RADIUS = 15;
 const COOLDOWN_TICKS = 15;    // 開火冷卻 tick 數
-const RESPAWN_MS = 120;  // 重生延遲 ms
+const RESPAWN_MS = 188;  // 重生延遲 ms
 const TICK_MS = 50;    // 物理迴圈間隔 (20 fps 邏輯)
 
 // ============================================================
@@ -694,7 +694,7 @@ function getRoom(roomId) {
             bullets: [],
             walls: [],
             scores: { red: 0, blue: 0 },
-            timeLeft: 120,
+            timeLeft: 188,
             active: false,
             tickCount: 0,
             loopHandle: null
@@ -1273,7 +1273,7 @@ io.on('connection', (socket) => {
                 room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
             }
             
-            room.timeLeft = 120;
+            room.timeLeft = 188;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
             console.log(`⚔️ 學生對戰房 [${data.roomId}] 初始化`);
